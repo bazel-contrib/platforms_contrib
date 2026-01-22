@@ -24,6 +24,7 @@ jobs:
     with:
       release_files: platform_constraints-*.tar.gz
       prerelease: false
+      bazel_test_command: bazel build :all
       tag_name: ${{ inputs.tag_name || github.ref_name }}
   publish:
     needs: release
