@@ -8,8 +8,8 @@ TAG=$1
 # The prefix is chosen to match what GitHub generates for source archives
 # This guarantees that users can easily switch from a released artifact to a source archive
 # with minimal differences in their code (e.g. strip_prefix remains the same)
-PREFIX="platform_constraints-${TAG:1}"
-ARCHIVE="platform_constraints-$TAG.tar.gz"
+PREFIX="platforms_contrib-${TAG:1}"
+ARCHIVE="platforms_contrib-$TAG.tar.gz"
 
 # NB: configuration for 'git archive' is in /.gitattributes
 git archive --format=tar --prefix=${PREFIX}/ ${TAG} | gzip > $ARCHIVE
