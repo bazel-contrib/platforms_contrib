@@ -1,0 +1,39 @@
+GLIBC_VERSIONS = [
+    "2." + str(i)
+    for i in range(15, 44)
+]
+
+[
+    constraint_value(
+        name = version,
+        constraint_setting = "//libc",
+        visibility = ["//visibility:public"],
+    )
+    for version in GLIBC_VERSIONS
+]
+
+[
+    alias(
+        name = "at_least_" + version,
+        actual = select(
+            {
+                ":" + version: ":" + version,
+                "//conditions:default": ":at_least_" + GLIBC_VERSIONS[i + 1],
+            },
+        ),
+        visibility = ["//visibility:public"],
+    ) if i < len(GLIBC_VERSIONS) - 1 else config_setting(
+        name = "at_least_" + version,
+        constraint_values = [
+            ":" + version,
+        ],
+        visibility = ["//visibility:public"],
+    )
+    for i, version in enumerate(GLIBC_VERSIONS)
+]
+
+alias(
+    name = "any_version",
+    actual = ":at_least_" + GLIBC_VERSIONS[0],
+    visibility = ["//libc:__pkg__"],
+)

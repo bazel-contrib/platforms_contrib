@@ -1,0 +1,16 @@
+constraint_setting(
+    name = "libc",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "glibc",
+    actual = "//libc/glibc:any_version",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "musl",
+    constraint_setting = "//libc",
+    visibility = ["//visibility:public"],
+)
