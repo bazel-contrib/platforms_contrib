@@ -1,7 +1,7 @@
 visibility(["//..."])
 
 def _enhanced_constraint_setting_impl(name, refines, **kwargs):
-    native.config_setting(
+    native.constraint_setting(
         name = name,
         aspect_hints = [refines] if refines else None,
         **kwargs
@@ -9,7 +9,7 @@ def _enhanced_constraint_setting_impl(name, refines, **kwargs):
 
 enhanced_constraint_setting = macro(
     implementation = _enhanced_constraint_setting_impl,
-    inherit_attrs = native.config_setting,
+    inherit_attrs = native.constraint_setting,
     attrs = {
         "refines": attr.label(
             configurable = False,

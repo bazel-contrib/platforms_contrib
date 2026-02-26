@@ -3,7 +3,7 @@ load("//defs:ordered_range_constraint_values.bzl", "ordered_range_constraint_val
 
 enhanced_constraint_setting(
     name = "version",
-    refines = ":libc",
+    refines = "//libc:glibc",
     visibility = ["//visibility:public"],
 )
 
