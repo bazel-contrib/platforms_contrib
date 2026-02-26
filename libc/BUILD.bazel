@@ -3,14 +3,14 @@ constraint_setting(
     visibility = ["//visibility:public"],
 )
 
-alias(
+constraint_value(
     name = "glibc",
-    actual = "//libc/glibc:any_version",
+    constraint_setting = ":libc",
     visibility = ["//visibility:public"],
 )
 
 constraint_value(
     name = "musl",
-    constraint_setting = "//libc",
+    constraint_setting = ":libc",
     visibility = ["//visibility:public"],
 )
