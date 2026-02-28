@@ -1,0 +1,18 @@
+platform(
+    name = "valid",
+    constraint_values = [
+        "//libc:glibc",
+        "//libc/glibc:2.42",
+    ],
+    # Work around the automatic "manual" tag on platform.
+    tags = [],
+)
+
+platform(
+    name = "invalid",
+    constraint_values = [
+        "//libc/glibc:2.42",
+    ],
+    # Work around the automatic "manual" tag on platform.
+    tags = [],
+)

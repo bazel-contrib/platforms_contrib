@@ -1,0 +1,2 @@
+common --aspects=//defs:validate_platforms_aspect.bzl%validate_platforms_aspect
+common --experimental_platforms_api

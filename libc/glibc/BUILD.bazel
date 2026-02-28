@@ -1,0 +1,19 @@
+load("//defs:enhanced_constraint_setting.bzl", "enhanced_constraint_setting")
+load("//defs:ordered_range_constraint_values.bzl", "ordered_range_constraint_values")
+
+enhanced_constraint_setting(
+    name = "version",
+    refines_value = "//libc:glibc",
+    visibility = ["//visibility:public"],
+)
+
+GLIBC_VERSIONS = [
+    "2." + str(i)
+    for i in range(15, 44)
+]
+
+ordered_range_constraint_values(
+    constraint_setting = ":version",
+    values = GLIBC_VERSIONS,
+    visibility = ["//visibility:public"],
+)
