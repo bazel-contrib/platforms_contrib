@@ -1,3 +1,4 @@
 module(name = "platforms_contrib")
 
 bazel_dep(name = "package_metadata", version = "0.0.7", dev_dependency = True)
+bazel_dep(name = "bazel_skylib", version = "1.8.2")

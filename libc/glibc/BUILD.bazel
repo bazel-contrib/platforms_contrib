@@ -1,0 +1,24 @@
+load("//private:ordered_range_constraint_values.bzl", "ordered_range_constraint_values")
+
+# Platforms must only specify a value for this setting if they also specify the
+# //libc:glibc constraint value. This will be enforced by future versions of
+# Bazel.
+constraint_setting(
+    name = "version",
+    visibility = ["//visibility:public"],
+)
+
+GLIBC_VERSIONS = [
+    "2." + str(i)
+    for i in range(15, 44)
+]
+
+# Provides "at_least_2.N" and "at_most_2.N" targets for each version of glibc
+# for use in select() statements. These are *not* constraint_value targets and
+# thus can't be used in platform definitions. Instead, specify an explicit
+# version.
+ordered_range_constraint_values(
+    constraint_setting = ":version",
+    values = GLIBC_VERSIONS,
+    visibility = ["//visibility:public"],
+)
