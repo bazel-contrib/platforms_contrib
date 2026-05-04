@@ -13,10 +13,6 @@ GLIBC_VERSIONS = [
     for i in range(15, 44)
 ]
 
-# Provides "at_least_2.N" and "at_most_2.N" targets for each version of glibc
-# for use in select() statements. These are *not* constraint_value targets and
-# thus can't be used in platform definitions. Instead, specify an explicit
-# version.
 ordered_range_constraint_values(
     constraint_setting = ":version",
     values = GLIBC_VERSIONS,

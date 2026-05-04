@@ -1,3 +1,21 @@
+load("//private:ordered_range_constraint_values.bzl", "ordered_range_constraint_values")
+
+# Platforms must only specify a value for this setting if they also specify the
+# @platforms//cpu:x86_64 constraint value. This will be enforced by future
+# versions of Bazel.
 constraint_setting(
-    name = "",
+    name = "microarchitecture_level",
+    default_constraint_value = ":v1",
+    visibility = ["//visibility:public"],
+)
+
+MICROARCHITECTURE_LEVELS = [
+    "v" + str(i)
+    for i in range(1, 4)
+]
+
+ordered_range_constraint_values(
+    constraint_setting = ":microarchitecture_level",
+    values = MICROARCHITECTURE_LEVELS,
+    visibility = ["//visibility:public"],
 )
