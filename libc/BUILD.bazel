@@ -1,0 +1,43 @@
+# There is no sensible default value for this setting. An unset value should be
+# treated as an unspecified C runtime. Platform definitions are encouraged to
+# specify a value for this setting.
+constraint_setting(
+    name = "libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "glibc",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "libSystem",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "msvcrt",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "musl",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "ucrt",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "wasi",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)

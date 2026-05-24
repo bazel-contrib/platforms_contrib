@@ -1,0 +1,3 @@
+bazel-*
+# Don't check in the lockfile in library projects.
+MODULE.bazel.lock
