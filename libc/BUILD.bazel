@@ -13,6 +13,12 @@ constraint_value(
 )
 
 constraint_value(
+    name = "libSystem",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
     name = "msvcrt",
     constraint_setting = ":libc",
     visibility = ["//visibility:public"],
@@ -26,6 +32,12 @@ constraint_value(
 
 constraint_value(
     name = "ucrt",
+    constraint_setting = ":libc",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "wasi",
     constraint_setting = ":libc",
     visibility = ["//visibility:public"],
 )
