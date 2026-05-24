@@ -28,7 +28,7 @@ def ordered_range_constraint_values(
             native.alias(
                 name = "at_least_" + value,
                 actual = select({
-                    ":" + value: ":" + value,
+                    value: value,
                     "//conditions:default": ":at_least_" + values[i + 1],
                 }),
                 **kwargs
@@ -36,16 +36,14 @@ def ordered_range_constraint_values(
         else:
             native.config_setting(
                 name = "at_least_" + value,
-                constraint_values = [
-                    ":" + value,
-                ],
+                constraint_values = [value],
                 **kwargs
             )
         if i > 0:
             native.alias(
                 name = "at_most_" + value,
                 actual = select({
-                    ":" + value: ":" + value,
+                    value: value,
                     "//conditions:default": ":at_most_" + values[i - 1],
                 }),
                 **kwargs
@@ -53,8 +51,6 @@ def ordered_range_constraint_values(
         else:
             native.config_setting(
                 name = "at_most_" + value,
-                constraint_values = [
-                    ":" + value,
-                ],
+                constraint_values = [value],
                 **kwargs
             )
