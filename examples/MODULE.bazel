@@ -1,0 +1,20 @@
+bazel_dep(name = "platforms_contrib")
+local_path_override(
+    module_name = "platforms_contrib",
+    path = "..",
+)
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
+
+register_toolchains(
+    "//libc_runtime:modern_foo_toolchain",
+    "//libc_runtime:compatible_foo_toolchain",
+    "//libc_runtime:legacy_foo_toolchain",
+)
+
+register_execution_platforms(
+    "//libc_runtime:modern_linux",
+    "//libc_runtime:legacy_linux",
+)

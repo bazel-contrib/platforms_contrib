@@ -1,0 +1,78 @@
+load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
+load(":foo_binary_variants.bzl", "compatible_foo_binary", "modern_foo_binary")
+
+platform(
+    name = "modern_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.41_available",
+    ],
+)
+
+platform(
+    name = "legacy_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm64",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.30_available",
+    ],
+)
+
+foo_toolchain(
+    name = "modern_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.40_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.40_available",
+    ],
+    text = "built against glibc >= 2.40, targeting glibc >= 2.40",
+)
+
+foo_toolchain(
+    name = "compatible_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.40_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.28_available",
+    ],
+    text = "built against glibc >= 2.40, targeting glibc >= 2.28",
+)
+
+foo_toolchain(
+    name = "legacy_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.28_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc_runtime/glibc:at_least_2.28_available",
+    ],
+    text = "built against glibc >= 2.28, targeting glibc >= 2.28",
+)
+
+modern_foo_binary(name = "my_modern_binary")
+
+compatible_foo_binary(name = "my_compatible_binary")
+
+foo_binary(
+    name = "my_tool",
+    tags = ["manual"],
+)
+
+genrule(
+    name = "use_my_tool",
+    outs = ["output.txt"],
+    cmd = "$(location :my_tool) > $@",
+    exec_compatible_with = [
+        "@platforms//cpu:arm64",
+    ],
+    tools = [":my_tool"],
+)

@@ -1,0 +1,25 @@
+constraint_setting(
+    name = "glibc",
+    default_constraint_value = ":not_available",
+    visibility = ["//visibility:public"],
+)
+
+constraint_value(
+    name = "not_available",
+    constraint_setting = ":glibc",
+    visibility = ["//visibility:public"],
+)
+
+GLIBC_VERSIONS = [
+    "2." + str(i)
+    for i in range(15, 44)
+]
+
+[
+    constraint_value(
+        name = "at_least_{version}_available".format(version = version),
+        constraint_setting = ":glibc",
+        visibility = ["//visibility:public"],
+    )
+    for version in GLIBC_VERSIONS
+]
