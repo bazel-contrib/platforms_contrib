@@ -57,8 +57,11 @@ foo_toolchain(
     text = "built with glibc >= 2.28, targeting glibc >= 2.28",
 )
 
+# Expected to use the modern toolchain.
 modern_foo_binary(name = "my_modern_binary")
 
+# Expected to use the compatible toolchain since the modern toolchain can't build for such an old
+# glibc version.
 compatible_foo_binary(name = "my_compatible_binary")
 
 genrule(
@@ -84,6 +87,10 @@ foo_binary(
     tags = ["manual"],
 )
 
+# The exec platform is forced to be legacy_linux by the musl constraint, so the tool is built with
+# the compatible toolchain. The resolved toolchain has to match the glibc exec constraints and thus
+# ends up being the legacy toolchain. The target platform is modern_linux, so its glibc version is
+# printed in the output.
 modern_genrule(
     name = "use_my_tool_and_toolchain",
     outs = ["output_tools.txt"],
@@ -106,6 +113,6 @@ modern_genrule(
 
 diff_test(
     name = "use_my_tool_and_toolchain_test",
-    file1 = ":output_tools.txt",
+    file1 = ":use_my_tool_and_toolchain",
     file2 = "expected_output_tools.txt",
 )

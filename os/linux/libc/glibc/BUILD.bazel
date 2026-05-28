@@ -1,6 +1,9 @@
 load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
 load(":glibc_private.bzl", "GLIBC_VERSIONS", "target_glibc_version")
 
+# When defining a platform, don't reference these constraints directly, use the
+# glibc_version_constraints helper from glibc.bzl instead.
+
 alias(
     name = "not_available",
     actual = ":at_least_{}_not_available".format(GLIBC_VERSIONS[0]),
@@ -34,6 +37,9 @@ alias(
     for i in range(len(GLIBC_VERSIONS))
 ]
 
+# Provides the version of glibc available on the target platform or the empty string as the
+# GLIBC_VERSION Make variable. Consume this either via the `toolchains` attribute in a BUILD file or
+# directly from a rule implementation by reading its platform_common.TemplateVariableInfo provider.
 target_glibc_version(
     name = "target_version",
     visibility = ["//visibility:public"],
