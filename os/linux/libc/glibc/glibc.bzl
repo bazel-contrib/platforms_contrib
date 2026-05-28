@@ -1,6 +1,6 @@
 load(":glibc_private.bzl", "GLIBC_VERSIONS")
 
-def glibc_version(version):
+def glibc_version_constraints(version):
     if version not in GLIBC_VERSIONS:
         fail("Unsupported glibc version: {version}".format(version = version))
     return [

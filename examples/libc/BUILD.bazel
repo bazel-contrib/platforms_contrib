@@ -1,12 +1,13 @@
-load("@platforms_contrib//os/linux/libc/glibc:glibc.bzl", "glibc_version")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@platforms_contrib//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")
 load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
-load(":foo_binary_variants.bzl", "compatible_foo_binary", "modern_foo_binary")
+load(":cfg_variants.bzl", "compatible_foo_binary", "modern_foo_binary", "modern_genrule")
 
 platform(
     name = "modern_linux",
     constraint_values = [
         "@platforms//os:linux",
-    ] + glibc_version("2.41"),
+    ] + glibc_version_constraints("2.41"),
 )
 
 platform(
@@ -14,7 +15,7 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
         "@platforms_contrib//os/linux/libc/musl:available",
-    ] + glibc_version("2.30"),
+    ] + glibc_version_constraints("2.30"),
 )
 
 foo_toolchain(
@@ -60,17 +61,51 @@ modern_foo_binary(name = "my_modern_binary")
 
 compatible_foo_binary(name = "my_compatible_binary")
 
+genrule(
+    name = "use_binaries",
+    outs = ["output_srcs.txt"],
+    srcs = [":my_modern_binary", ":my_compatible_binary"],
+    cmd = """
+    echo "Using modern binary..." > $@
+    $(location :my_modern_binary) >> $@
+    echo "Using compatible binary..." >> $@
+    $(location :my_compatible_binary) >> $@
+    """,
+)
+
+diff_test(
+    name = "use_binaries_test",
+    file1 = ":output_srcs.txt",
+    file2 = "expected_output_srcs.txt",
+)
+
 foo_binary(
     name = "my_tool",
     tags = ["manual"],
 )
 
-genrule(
-    name = "use_my_tool",
-    outs = ["output.txt"],
-    cmd = "$(location :my_tool) > $@",
+modern_genrule(
+    name = "use_my_tool_and_toolchain",
+    outs = ["output_tools.txt"],
+    cmd = """
+    echo "Running my_tool..." > $@
+    $(location :my_tool) >> $@
+    echo "Running toolchain foo_binary..." >> $@
+    $(FOO) >> $@
+    echo "Target glibc version: $(GLIBC_VERSION)" >> $@
+    """,
     exec_compatible_with = [
         "@platforms_contrib//os/linux/libc/musl:available",
     ],
+    toolchains = [
+        "//rules/foo:toolchain_type",
+        "@platforms_contrib//os/linux/libc/glibc:target_version",
+    ],
     tools = [":my_tool"],
+)
+
+diff_test(
+    name = "use_my_tool_and_toolchain_test",
+    file1 = ":output_tools.txt",
+    file2 = "expected_output_tools.txt",
 )

@@ -24,11 +24,17 @@ _foo_script = rule(
 )
 
 def _foo_toolchain_info_impl(ctx):
-    return [platform_common.ToolchainInfo(
-        foo_info = FooToolchainInfo(
-            binary = ctx.attr.binary[DefaultInfo].files_to_run,
+    return [
+        DefaultInfo(files = ctx.attr.binary[DefaultInfo].files),
+        platform_common.ToolchainInfo(
+            foo_info = FooToolchainInfo(
+                binary = ctx.attr.binary[DefaultInfo].files_to_run,
+            ),
         ),
-    )]
+        platform_common.TemplateVariableInfo({
+            "FOO": ctx.attr.binary[DefaultInfo].files_to_run.executable.path,
+        }),
+    ]
 
 _foo_toolchain_info = rule(
     implementation = _foo_toolchain_info_impl,

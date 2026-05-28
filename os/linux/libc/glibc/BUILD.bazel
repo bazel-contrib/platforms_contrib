@@ -1,5 +1,5 @@
 load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
-load(":glibc_private.bzl", "GLIBC_VERSIONS")
+load(":glibc_private.bzl", "GLIBC_VERSIONS", "target_glibc_version")
 
 alias(
     name = "not_available",
@@ -33,3 +33,8 @@ alias(
     )
     for i in range(len(GLIBC_VERSIONS))
 ]
+
+target_glibc_version(
+    name = "target_version",
+    visibility = ["//visibility:public"],
+)
