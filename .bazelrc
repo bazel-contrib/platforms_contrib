@@ -1,0 +1,5 @@
+# Debug where options came from.
+common:ci --announce_rc
+# Don't rely on test logs being easily accessible from the test runner,
+# though it makes the log noisier.
+common:ci --test_output=errors
