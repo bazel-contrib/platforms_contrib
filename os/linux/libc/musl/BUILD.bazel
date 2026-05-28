@@ -1,7 +1,6 @@
 constraint_setting(
     name = "musl",
     default_constraint_value = ":not_available",
-    visibility = ["//visibility:public"],
 )
 
 constraint_value(

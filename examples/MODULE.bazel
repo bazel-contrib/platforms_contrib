@@ -9,12 +9,12 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
 
 register_toolchains(
-    "//libc_runtime:modern_foo_toolchain",
-    "//libc_runtime:compatible_foo_toolchain",
-    "//libc_runtime:legacy_foo_toolchain",
+    "//libc:modern_foo_toolchain",
+    "//libc:compatible_foo_toolchain",
+    "//libc:legacy_foo_toolchain",
 )
 
 register_execution_platforms(
-    "//libc_runtime:modern_linux",
-    "//libc_runtime:legacy_linux",
+    "//libc:modern_linux",
+    "//libc:legacy_linux",
 )

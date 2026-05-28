@@ -3,12 +3,12 @@ load("//rules/foo:defs.bzl", "foo_binary")
 
 modern_foo_binary, _modern_foo_binary = (
     with_cfg(foo_binary)
-        .set("platforms", [Label("//libc_runtime:modern_linux")])
+        .set("platforms", [Label("//libc:modern_linux")])
         .build()
 )
 
 compatible_foo_binary, _compatible_foo_binary = (
     with_cfg(foo_binary)
-        .set("platforms", [Label("//libc_runtime:legacy_linux")])
+        .set("platforms", [Label("//libc:legacy_linux")])
         .build()
 )
