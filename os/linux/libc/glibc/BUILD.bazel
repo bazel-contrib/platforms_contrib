@@ -1,28 +1,19 @@
-# Constraints describing which version of the glibc C library is available on a
-# Linux platform.
+# Constraints describing which version of the glibc library is available on a Linux platform.
 #
-# For every supported glibc version there is an `at_least_<version>` constraint
-# setting with an `_available` constraint_value and a default `_not_available`
-# one. `:available` / `:not_available` are aliases for the lowest supported
-# version, i.e. "any glibc" / "no glibc".
+# Usage:
 #
-# Usage, as demonstrated in examples/libc/BUILD.bazel:
+#   * Defining a `platform`: append `glibc_version_constraints("2.XY")` (from `glibc.bzl`) to the
+#     `platform`'s `constraint_value`s. This helper expands to every `at_least_2.XY_available` value
+#     up to the requested version.
 #
-#   * Defining a platform: splice `glibc_version_constraints("2.41")` (from
-#     `:glibc.bzl`) into the platform's `constraint_values` rather than listing
-#     these constraints directly. The helper expands to every
-#     `at_least_<v>_available` value up to the requested version, so the
-#     example's `modern_linux` platform (2.41) also satisfies
-#     `:at_least_2.28_available`.
+#   * Constraining a toolchain or usage in `select()`: list one of the
+#     `:at_least_2.XY_available` values in `exec_compatible_with` / `target_compatible_with` or as a
+#     `select()` key.
 #
-#   * Constraining a toolchain or target: list `:at_least_<version>_available`
-#     in `exec_compatible_with` / `target_compatible_with`. The example's
-#     toolchains require glibc >= 2.40 to run but can target glibc >= 2.28, which
-#     drives toolchain resolution.
+#   * Reading the version available on a target platform: add the `:target_version` target to the
+#     `toolchains` attribute of a target and use the `GLIBC_VERSION` Make variable.
 #
-#   * Reading the version during the build: list `:target_version` in a rule's
-#     `toolchains` attribute and read the `GLIBC_VERSION` Make variable (see
-#     below); the example's genrule prints `$(GLIBC_VERSION)`.
+# See `examples/libc/BUILD.bazel` for examples of all three usage patterns.
 
 load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
 load(":glibc_private.bzl", "GLIBC_VERSIONS", "target_glibc_version")
