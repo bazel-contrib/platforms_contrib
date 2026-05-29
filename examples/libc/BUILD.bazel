@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@platforms_contrib//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")
 load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
-load(":cfg_variants.bzl", "compatible_foo_binary", "modern_foo_binary", "modern_genrule")
+load(":cfg_variants.bzl", "modern_genrule")
 
 platform(
     name = "modern_linux",
@@ -58,11 +58,17 @@ foo_toolchain(
 )
 
 # Expected to use the modern toolchain.
-modern_foo_binary(name = "my_modern_binary")
+foo_binary(
+    name = "my_modern_binary",
+    target_platform = ":modern_linux",
+)
 
 # Expected to use the compatible toolchain since the modern toolchain can't build for such an old
 # glibc version.
-compatible_foo_binary(name = "my_compatible_binary")
+foo_binary(
+    name = "my_compatible_binary",
+    target_platform = ":legacy_linux",
+)
 
 genrule(
     name = "use_binaries",

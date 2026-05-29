@@ -74,6 +74,17 @@ def foo_toolchain(
         **kwargs
     )
 
+def _target_platform_transition_impl(_, attr):
+    if attr.target_platform == None:
+        return {}
+    return {"//command_line_option:platforms": [attr.target_platform]}
+
+_target_platform_transition = transition(
+    implementation = _target_platform_transition_impl,
+    inputs = ["//command_line_option:platforms"],
+    outputs = ["//command_line_option:platforms"],
+)
+
 def _foo_binary_impl(ctx):
     toolchain = ctx.toolchains[_TOOLCHAIN_TYPE].foo_info
     out = ctx.actions.declare_file(ctx.label.name + ".sh")
@@ -98,5 +109,9 @@ chmod +x "$2"
 foo_binary = rule(
     implementation = _foo_binary_impl,
     executable = True,
+    cfg = _target_platform_transition,
+    attrs = {
+        "target_platform": attr.label(),
+    },
     toolchains = [_TOOLCHAIN_TYPE],
 )
