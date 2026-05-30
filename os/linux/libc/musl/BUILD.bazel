@@ -1,14 +1,14 @@
-# Constraint describing whether the musl C library is available on a platform.
-# Platforms default to `:not_available`.
+# Constraint describing whether the musl runtime library is available on a platform.
+#
+# Note that binaries statically linked against musl do not require the runtime library to be present
+# on the target platform and thus this constraint isn't relevant for them.
 #
 # Usage:
 #
-#   * Add `:available` to a platform's `constraint_values` to declare that musl
-#     is available there.
+#   * Add `:available` to a platform's `constraint_values` to declare that musl is available there.
 #
 #   * Reference `:available` from `exec_compatible_with` / `target_compatible_with`
-#     to require musl. The example's genrule sets `exec_compatible_with` to
-#     `:available` to force its actions onto the musl-providing exec platform.
+#     of a toolchain to require musl or `selecxt()` on its availability.
 
 constraint_setting(
     name = "musl",

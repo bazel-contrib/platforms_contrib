@@ -1,4 +1,4 @@
-# Constraints describing which version of the glibc library is available on a Linux platform.
+# Constraints describing which version of the glibc runtime library is available on a platform.
 #
 # Usage:
 #
