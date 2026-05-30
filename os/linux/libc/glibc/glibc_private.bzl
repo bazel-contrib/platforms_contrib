@@ -6,7 +6,7 @@ GLIBC_VERSIONS = [
 ]
 
 def _escape_version(version):
-    return "v" + version.replace(".", "_")
+    return "_v" + version.replace(".", "_")
 
 def _target_glibc_version_impl(ctx):
     version = ""
