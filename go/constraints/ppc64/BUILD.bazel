@@ -1,0 +1,19 @@
+package(default_visibility = ["//visibility:public"])
+
+# Microarchitecture level for ppc64/ppc64le targets, corresponding to GOPPC64.
+# Applies to both big-endian (ppc64) and little-endian (ppc64le) variants.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value once bazelbuild/bazel#28877 lands.
+# Note: @platforms has @platforms//cpu:ppc64le for little-endian; big-endian
+# ppc64 has no dedicated value in @platforms yet.
+constraint_setting(name = "ppc64")
+
+constraint_value(
+    name = "power8",
+    constraint_setting = ":ppc64",
+)
+
+constraint_value(
+    name = "power9",
+    constraint_setting = ":ppc64",
+)

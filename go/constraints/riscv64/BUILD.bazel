@@ -1,0 +1,23 @@
+package(default_visibility = ["//visibility:public"])
+
+# ISA profile for riscv64 targets, corresponding to GORISCV64.
+# RVA20U64 is the minimum required profile starting from Go 1.23.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value = "@platforms//cpu:riscv64" once
+# bazelbuild/bazel#28877 lands.
+constraint_setting(name = "riscv64")
+
+constraint_value(
+    name = "rva20u64",
+    constraint_setting = ":riscv64",
+)
+
+constraint_value(
+    name = "rva22u64",
+    constraint_setting = ":riscv64",
+)
+
+constraint_value(
+    name = "rva23u64",
+    constraint_setting = ":riscv64",
+)

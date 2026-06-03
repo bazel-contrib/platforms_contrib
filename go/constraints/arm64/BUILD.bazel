@@ -1,0 +1,122 @@
+package(default_visibility = ["//visibility:public"])
+
+# Microarchitecture level for arm64/aarch64 targets, corresponding to the
+# version component of GOARM64 (e.g. GOARM64=v9.0,lse,crypto).
+# See https://go.dev/wiki/MinimumRequirements#arm64
+# TODO: add refines_constraint_value = "@platforms//cpu:aarch64" once
+# bazelbuild/bazel#28877 lands.
+constraint_setting(name = "arm64")
+
+constraint_value(
+    name = "v8.0",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.1",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.2",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.3",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.4",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.5",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.6",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.7",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.8",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v8.9",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.0",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.1",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.2",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.3",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.4",
+    constraint_setting = ":arm64",
+)
+
+constraint_value(
+    name = "v9.5",
+    constraint_setting = ":arm64",
+)
+
+# LSE (Large System Extensions) — optional ARM64 CPU feature.
+# When lse_on, ",lse" is appended to GOARM64.
+constraint_setting(
+    name = "lse",
+    default_constraint_value = ":lse_off",
+)
+
+constraint_value(
+    name = "lse_on",
+    constraint_setting = ":lse",
+)
+
+constraint_value(
+    name = "lse_off",
+    constraint_setting = ":lse",
+)
+
+# Cryptographic extensions — optional ARM64 CPU feature.
+# When crypto_on, ",crypto" is appended to GOARM64.
+constraint_setting(
+    name = "crypto",
+    default_constraint_value = ":crypto_off",
+)
+
+constraint_value(
+    name = "crypto_on",
+    constraint_setting = ":crypto",
+)
+
+constraint_value(
+    name = "crypto_off",
+    constraint_setting = ":crypto",
+)

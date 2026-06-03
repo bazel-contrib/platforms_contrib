@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+# Floating point implementation for mips64/mips64le targets, corresponding to GOMIPS64.
+# Applies to both big-endian (mips64) and little-endian (mips64le) variants.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value = "@platforms//cpu:mips64" once
+# bazelbuild/bazel#28877 lands.
+constraint_setting(name = "mips64")
+
+constraint_value(
+    name = "hardfloat",
+    constraint_setting = ":mips64",
+)
+
+constraint_value(
+    name = "softfloat",
+    constraint_setting = ":mips64",
+)

@@ -1,0 +1,17 @@
+package(default_visibility = ["//visibility:public"])
+
+# Floating point implementation for 386/x86-32 targets, corresponding to GO386.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value = "@platforms//cpu:x86_32" once
+# bazelbuild/bazel#28877 lands.
+constraint_setting(name = "386")
+
+constraint_value(
+    name = "sse2",
+    constraint_setting = ":386",
+)
+
+constraint_value(
+    name = "softfloat",
+    constraint_setting = ":386",
+)
