@@ -1,0 +1,39 @@
+package(default_visibility = ["//visibility:public"])
+
+# Experimental WebAssembly feature extensions, corresponding to GOWASM.
+# GOWASM accepts a comma-separated list; each feature is a separate setting.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value = "@platforms//cpu:wasm32" once
+# bazelbuild/bazel#28877 lands.
+
+# Saturating (non-trapping) float-to-int conversions.
+constraint_setting(
+    name = "satconv",
+    default_constraint_value = ":satconv_off",
+)
+
+constraint_value(
+    name = "satconv_on",
+    constraint_setting = ":satconv",
+)
+
+constraint_value(
+    name = "satconv_off",
+    constraint_setting = ":satconv",
+)
+
+# Sign-extension operators.
+constraint_setting(
+    name = "signext",
+    default_constraint_value = ":signext_off",
+)
+
+constraint_value(
+    name = "signext_on",
+    constraint_setting = ":signext",
+)
+
+constraint_value(
+    name = "signext_off",
+    constraint_setting = ":signext",
+)

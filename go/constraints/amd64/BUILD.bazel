@@ -1,0 +1,27 @@
+package(default_visibility = ["//visibility:public"])
+
+# Microarchitecture level for amd64/x86_64 targets, corresponding to GOAMD64.
+# See https://go.dev/doc/install/source#environment
+# TODO: add refines_constraint_value = "@platforms//cpu:x86_64" once
+# bazelbuild/bazel#28877 lands.
+constraint_setting(name = "amd64")
+
+constraint_value(
+    name = "v1",
+    constraint_setting = ":amd64",
+)
+
+constraint_value(
+    name = "v2",
+    constraint_setting = ":amd64",
+)
+
+constraint_value(
+    name = "v3",
+    constraint_setting = ":amd64",
+)
+
+constraint_value(
+    name = "v4",
+    constraint_setting = ":amd64",
+)

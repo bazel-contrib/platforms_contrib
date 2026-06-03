@@ -1,3 +1,5 @@
 module(name = "platforms_contrib")
 
-bazel_dep(name = "package_metadata", version = "0.0.7", dev_dependency = True)
+bazel_dep(name = "platforms", version = "1.1.0")
+
+bazel_dep(name = "package_metadata", version = "0.0.10", dev_dependency = True)
