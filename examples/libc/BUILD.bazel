@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@platforms_contrib//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")
+load("@platforms_contrib//os/linux/libc/musl:musl.bzl", "musl_version_constraints")
 load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
 load(":cfg_variants.bzl", "modern_genrule")
 
@@ -14,8 +15,7 @@ platform(
     name = "legacy_linux",
     constraint_values = [
         "@platforms//os:linux",
-        "@platforms_contrib//os/linux/libc/musl:available",
-    ] + glibc_version_constraints("2.30"),
+    ] + glibc_version_constraints("2.30") + musl_version_constraints("1.2"),
 )
 
 foo_toolchain(
@@ -108,7 +108,7 @@ modern_genrule(
     echo "Target glibc version: $(GLIBC_VERSION)" >> $@
     """,
     exec_compatible_with = [
-        "@platforms_contrib//os/linux/libc/musl:available",
+        "@platforms_contrib//os/linux/libc/musl:at_least_1.1_available",
     ],
     toolchains = [
         "//rules/foo:toolchain_type",
