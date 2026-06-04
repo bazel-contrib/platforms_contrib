@@ -2,7 +2,7 @@ visibility("private")
 
 GLIBC_VERSIONS = [
     "2." + str(i)
-    for i in range(15, 44)
+    for i in range(15, 46)
 ]
 
 def _escape_version(version):
