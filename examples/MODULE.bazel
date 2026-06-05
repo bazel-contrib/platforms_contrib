@@ -13,6 +13,8 @@ register_toolchains(
     "//libc:modern_foo_toolchain",
     "//libc:compatible_foo_toolchain",
     "//libc:legacy_foo_toolchain",
+    "//x86_64:avx512_foo_toolchain",
+    "//x86_64:baseline_foo_toolchain",
 )
 
 register_execution_platforms(
