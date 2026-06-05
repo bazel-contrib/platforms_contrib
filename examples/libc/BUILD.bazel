@@ -1,0 +1,124 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@platforms_contrib//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")
+load("@platforms_contrib//os/linux/libc/musl:musl.bzl", "musl_version_constraints")
+load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
+load(":cfg_variants.bzl", "modern_genrule")
+
+platform(
+    name = "modern_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+    ] + glibc_version_constraints("2.41"),
+)
+
+platform(
+    name = "legacy_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+    ] + glibc_version_constraints("2.30") + musl_version_constraints("1.2"),
+)
+
+foo_toolchain(
+    name = "modern_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.40_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.40_available",
+    ],
+    text = "built with glibc >= 2.40, targeting glibc >= 2.40",
+)
+
+foo_toolchain(
+    name = "compatible_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.40_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.28_available",
+    ],
+    text = "built with glibc >= 2.40, targeting glibc >= 2.28",
+)
+
+foo_toolchain(
+    name = "legacy_foo_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.28_available",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.28_available",
+    ],
+    text = "built with glibc >= 2.28, targeting glibc >= 2.28",
+)
+
+# Expected to use the modern toolchain.
+foo_binary(
+    name = "my_modern_binary",
+    target_platform = ":modern_linux",
+)
+
+# Expected to use the compatible toolchain since the modern toolchain can't build for such an old
+# glibc version.
+foo_binary(
+    name = "my_compatible_binary",
+    target_platform = ":legacy_linux",
+)
+
+genrule(
+    name = "use_binaries",
+    outs = ["output_srcs.txt"],
+    srcs = [":my_modern_binary", ":my_compatible_binary"],
+    cmd = """
+    echo "Using modern binary..." > $@
+    $(location :my_modern_binary) >> $@
+    echo "Using compatible binary..." >> $@
+    $(location :my_compatible_binary) >> $@
+    """,
+)
+
+diff_test(
+    name = "use_binaries_test",
+    file1 = ":output_srcs.txt",
+    file2 = "expected_output_srcs.txt",
+)
+
+foo_binary(
+    name = "my_tool",
+    tags = ["manual"],
+)
+
+# The exec platform is forced to be legacy_linux by the musl constraint, so the tool is built with
+# the compatible toolchain. The resolved toolchain has to match the glibc exec constraints and thus
+# ends up being the legacy toolchain. The target platform is modern_linux, so its glibc version is
+# printed in the output.
+modern_genrule(
+    name = "use_my_tool_and_toolchain",
+    outs = ["output_tools.txt"],
+    cmd = """
+    echo "Running my_tool..." > $@
+    $(location :my_tool) >> $@
+    echo "Running toolchain foo_binary..." >> $@
+    $(FOO) >> $@
+    echo "Target glibc version: $(GLIBC_VERSION)" >> $@
+    """,
+    exec_compatible_with = [
+        "@platforms_contrib//os/linux/libc/musl:at_least_1.1_available",
+    ],
+    toolchains = [
+        "//rules/foo:toolchain_type",
+        "@platforms_contrib//os/linux/libc/glibc:target_version",
+    ],
+    tools = [":my_tool"],
+)
+
+diff_test(
+    name = "use_my_tool_and_toolchain_test",
+    file1 = ":use_my_tool_and_toolchain",
+    file2 = "expected_output_tools.txt",
+)

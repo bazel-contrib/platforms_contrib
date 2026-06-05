@@ -1,0 +1,60 @@
+# Constraints describing which version of the musl runtime library is available on a platform.
+#
+# Usage:
+#
+#   * Defining a `platform`: append `musl_version_constraints("1.XY")` (from `musl.bzl`) to the
+#     `platform`'s `constraint_value`s. This helper expands to every `at_least_1.XY_available` value
+#     up to the requested version.
+#
+#   * Constraining a toolchain or usage in `select()`: list one of the
+#     `:at_least_1.X_available` values in `exec_compatible_with` / `target_compatible_with` or as a
+#     `select()` key.
+#
+#   * Reading the version available on a target platform: add the `:target_version` target to the
+#     `toolchains` attribute of a target and use the `MUSL_VERSION` Make variable.
+#
+# See `examples/libc/BUILD.bazel` for examples of all three usage patterns.
+
+load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
+load(":musl_private.bzl", "MUSL_VERSIONS", "target_musl_version")
+
+alias(
+    name = "not_available",
+    actual = ":at_least_{}_not_available".format(MUSL_VERSIONS[0]),
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "available",
+    actual = ":at_least_{}_available".format(MUSL_VERSIONS[0]),
+    visibility = ["//visibility:public"],
+)
+
+[
+    (
+        compat_constraint_setting(
+            name = "at_least_{}".format(MUSL_VERSIONS[i]),
+            default_constraint_value = ":at_least_{}_not_available".format(MUSL_VERSIONS[i]),
+            refines_constraint_value = "@platforms//os:linux" if i == 0 else ":at_least_{}".format(MUSL_VERSIONS[i - 1]),
+        ),
+        constraint_value(
+            name = "at_least_{}_not_available".format(MUSL_VERSIONS[i]),
+            constraint_setting = ":at_least_{}".format(MUSL_VERSIONS[i]),
+            visibility = ["//visibility:public"],
+        ),
+        constraint_value(
+            name = "at_least_{}_available".format(MUSL_VERSIONS[i]),
+            constraint_setting = ":at_least_{}".format(MUSL_VERSIONS[i]),
+            visibility = ["//visibility:public"],
+        ),
+    )
+    for i in range(len(MUSL_VERSIONS))
+]
+
+# Provides the version of musl available on the target platform or the empty string as the
+# MUSL_VERSION Make variable. Consume this either via the `toolchains` attribute in a BUILD file or
+# directly from a rule implementation by reading its platform_common.TemplateVariableInfo provider.
+target_musl_version(
+    name = "target_version",
+    visibility = ["//visibility:public"],
+)

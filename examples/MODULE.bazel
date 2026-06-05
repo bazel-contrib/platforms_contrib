@@ -1,0 +1,21 @@
+bazel_dep(name = "platforms_contrib")
+local_path_override(
+    module_name = "platforms_contrib",
+    path = "..",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
+
+register_toolchains(
+    "//libc:modern_foo_toolchain",
+    "//libc:compatible_foo_toolchain",
+    "//libc:legacy_foo_toolchain",
+)
+
+register_execution_platforms(
+    "//libc:modern_linux",
+    "//libc:legacy_linux",
+)

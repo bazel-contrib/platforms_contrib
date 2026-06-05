@@ -1,0 +1,50 @@
+name: CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+concurrency:
+  # Cancel previous actions from the same PR: https://stackoverflow.com/a/72408109
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        bazelversion: [8.*, 9.*, last_green]
+        folder: [examples]
+        include:
+          - bazelversion: 9.*
+            folder: "."
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        working-directory: ${{ matrix.folder }}
+        run: echo "${{ matrix.bazelversion }}" > .bazelversion
+
+      # The root module has no test targets, so only build it; the examples
+      # module contains the tests that exercise the rules end-to-end.
+      - name: bazel test //...
+        working-directory: ${{ matrix.folder }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.folder }}" = "." ]; then
+            bazel build --config=ci //...
+          else
+            bazel test --config=ci //...
+          fi
