@@ -8,7 +8,7 @@
 #     level.
 #
 #   * Constraining a toolchain or usage in `select()`: use one of the `:at_least_vN` config settings
-#     as a `select()` key, or list a single `//cpu/x86_64/<feature>:available` value in
+#     as a `select()` key, or list a single `//cpu/x86_64/feature/<feature>:available` value in
 #     `exec_compatible_with` / `target_compatible_with`.
 #
 # See `examples/x86_64/BUILD.bazel` for examples of these usage patterns.
@@ -19,7 +19,7 @@ load(":x86_64_private.bzl", "FEATURES_UP_TO")
     config_setting(
         name = "at_least_{}".format(level),
         constraint_values = [
-            "//cpu/x86_64/{}:available".format(feature)
+            "//cpu/x86_64/feature/{}:available".format(feature)
             for feature in features
         ],
         visibility = ["//visibility:public"],
