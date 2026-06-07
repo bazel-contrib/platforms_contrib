@@ -3,15 +3,21 @@
  *
  * Writes one repo-relative label per line on stdout. Each line names the
  * `at_least_<detected_version>_available` constraint_value for a libc
- * family detected on the host. Empty lines and lines starting with '#'
- * are reserved for comments and ignored by the consuming repository rule.
+ * family found installed on the host. Empty lines and lines starting
+ * with '#' are reserved for comments and ignored by the consuming
+ * repository rule.
  *
- * The detector deliberately does NOT know the set of constraint values
- * that actually exist in @platforms_contrib. It emits the raw detected
- * version; the repo rule loads the version range constants and clips to
- * the highest supported value.
+ * Each supported libc family is probed independently: both can be
+ * installed on the same machine (e.g. a Debian system with musl-tools)
+ * and the constraint set is additive. The detector deliberately makes
+ * no attempt to identify "the" libc.
  *
- * Possible labels:
+ * The detector also deliberately does NOT know the set of constraint
+ * values that actually exist in @platforms_contrib. It emits the raw
+ * detected version; the repo rule loads the version range constants
+ * and clips to the highest supported value.
+ *
+ * Possible labels (zero, one, or both per run):
  *   //os/linux/libc/glibc:at_least_<major>.<minor>_available
  *   //os/linux/libc/musl:at_least_<major>.<minor>_available
  *
@@ -42,36 +48,6 @@
 
 static int file_exists(const char *path) {
     return access(path, F_OK) == 0;
-}
-
-/* Returns "glibc" | "musl" | NULL. */
-static const char *detect_linux_libc(void) {
-    static const char *const musl_paths[] = {
-        "/lib/ld-musl-x86_64.so.1",
-        "/lib/ld-musl-aarch64.so.1",
-        "/lib/ld-musl-armhf.so.1",
-        "/lib/ld-musl-arm.so.1",
-        "/lib/ld-musl-i386.so.1",
-        "/lib/ld-musl-riscv64.so.1",
-        NULL,
-    };
-    for (int i = 0; musl_paths[i] != NULL; i++) {
-        if (file_exists(musl_paths[i])) return "musl";
-    }
-
-    static const char *const glibc_paths[] = {
-        "/lib64/ld-linux-x86-64.so.2",
-        "/lib/ld-linux-aarch64.so.1",
-        "/lib/ld-linux-armhf.so.3",
-        "/lib/ld-linux.so.2",
-        "/lib64/ld-linux-riscv64-lp64d.so.1",
-        NULL,
-    };
-    for (int i = 0; glibc_paths[i] != NULL; i++) {
-        if (file_exists(glibc_paths[i])) return "glibc";
-    }
-
-    return NULL;
 }
 
 /*
@@ -210,20 +186,14 @@ static int detect_musl_version(int *major_out, int *minor_out) {
 
 int main(void) {
 #if defined(__linux__)
-    const char *libc = detect_linux_libc();
-    if (libc == NULL) return 0;
-
     int major = 0, minor = 0;
-    if (strcmp(libc, "glibc") == 0) {
-        if (detect_glibc_version(&major, &minor)) {
-            printf("//os/linux/libc/glibc:at_least_%d.%d_available\n",
-                   major, minor);
-        }
-    } else if (strcmp(libc, "musl") == 0) {
-        if (detect_musl_version(&major, &minor)) {
-            printf("//os/linux/libc/musl:at_least_%d.%d_available\n",
-                   major, minor);
-        }
+    if (detect_glibc_version(&major, &minor)) {
+        printf("//os/linux/libc/glibc:at_least_%d.%d_available\n",
+               major, minor);
+    }
+    if (detect_musl_version(&major, &minor)) {
+        printf("//os/linux/libc/musl:at_least_%d.%d_available\n",
+               major, minor);
     }
 #endif
     return 0;
