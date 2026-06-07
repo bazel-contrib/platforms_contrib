@@ -1,10 +1,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-# The C source is also referenced by @platforms_contrib//private:host_detect.bzl
-# as a fallback when no prebuilt binary is available for the host, so make it
-# publicly visible as a source label.
+# Source and prebuilt-index are both consumed by
+# @platforms_contrib//private:host_detect.bzl, so make them publicly
+# visible as source labels.
 exports_files(
-    ["src/detector.c"],
+    [
+        "src/detector.c",
+        "prebuilts.json",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -36,7 +39,7 @@ _POSIX_LINKOPTS = [
 ]
 
 cc_binary(
-    name = "detector_linux_x86_64",
+    name = "detector_linux-amd64",
     srcs = ["src/detector.c"],
     copts = _COMMON_COPTS,
     features = ["fully_static_link"],
@@ -48,7 +51,7 @@ cc_binary(
 )
 
 cc_binary(
-    name = "detector_linux_aarch64",
+    name = "detector_linux-arm64",
     srcs = ["src/detector.c"],
     copts = _COMMON_COPTS,
     features = ["fully_static_link"],

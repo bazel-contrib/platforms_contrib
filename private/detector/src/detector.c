@@ -1,15 +1,19 @@
 /*
  * Host detection helper for @platforms_contrib//host.
  *
- * Writes one repo-relative label per line on stdout. Each line names a
- * constraint_value in @platforms_contrib that the host satisfies but that
- * cannot be inferred from compile-time configuration alone. Empty lines and
- * lines starting with '#' are reserved for comments and ignored by the
- * consuming repository rule.
+ * Writes one repo-relative label per line on stdout. Each line names the
+ * `at_least_<detected_version>_available` constraint_value for a libc
+ * family detected on the host. Empty lines and lines starting with '#'
+ * are reserved for comments and ignored by the consuming repository rule.
+ *
+ * The detector deliberately does NOT know the set of constraint values
+ * that actually exist in @platforms_contrib. It emits the raw detected
+ * version; the repo rule loads the version range constants and clips to
+ * the highest supported value.
  *
  * Possible labels:
- *   //os/linux/libc/glibc:at_least_2.XY_available  (Linux, glibc)
- *   //os/linux/libc/musl:at_least_1.X_available    (Linux, musl)
+ *   //os/linux/libc/glibc:at_least_<major>.<minor>_available
+ *   //os/linux/libc/musl:at_least_<major>.<minor>_available
  *
  * The detector is intentionally Linux-only — every other host platform
  * configuration is already known at compile time. On other operating
@@ -35,23 +39,6 @@
 #endif
 
 #if defined(__linux__)
-
-/*
- * Supported version ranges. Must stay in sync with GLIBC_VERSIONS and
- * MUSL_VERSIONS in os/linux/libc/{glibc,musl}/{glibc,musl}_private.bzl.
- *
- * Versions are kept as (major, minor) tuples to avoid string handling in
- * range comparisons. When the host advertises a version newer than the
- * range, output saturates at the highest supported entry — the resulting
- * constraint accurately reflects the lower bound that's guaranteed.
- */
-#define GLIBC_MAJOR    2
-#define GLIBC_MIN_MINOR 15
-#define GLIBC_MAX_MINOR 45
-
-#define MUSL_MAJOR     1
-#define MUSL_MIN_MINOR 0
-#define MUSL_MAX_MINOR 2
 
 static int file_exists(const char *path) {
     return access(path, F_OK) == 0;
@@ -88,17 +75,12 @@ static const char *detect_linux_libc(void) {
 }
 
 /*
- * Forks and executes `path` with the given argv, capturing the first
- * ~1 KiB of stdout. Returns the number of bytes captured into `out` (which
- * is always NUL-terminated). Returns -1 on failure to fork/pipe.
- *
- * stderr is redirected to /dev/null because some versions of musl print
- * usage information there even on a clean invocation.
+ * Forks and executes `path` with the given argv, capturing both stdout
+ * and stderr in `out`. Returns the number of bytes written (always
+ * NUL-terminated), or -1 on failure.
  */
-static ssize_t capture_stdout(const char *path,
-                              char *const argv[],
-                              char *out,
-                              size_t out_size) {
+static ssize_t capture_output(const char *path, char *const argv[],
+                              char *out, size_t out_size) {
     if (out_size == 0) return -1;
 
     int pipefd[2];
@@ -113,12 +95,8 @@ static ssize_t capture_stdout(const char *path,
     if (pid == 0) {
         close(pipefd[0]);
         if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
+        if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
         close(pipefd[1]);
-        int devnull = open("/dev/null", O_WRONLY);
-        if (devnull >= 0) {
-            dup2(devnull, STDERR_FILENO);
-            close(devnull);
-        }
         char *const envp[] = { NULL };
         execve(path, argv, envp);
         _exit(127);
@@ -148,7 +126,7 @@ static ssize_t capture_stdout(const char *path,
  * glibc's libc.so.6 is itself executable: running it prints version info,
  * whose first line ends with " version 2.NN.".
  */
-static int detect_glibc_minor(int *minor_out) {
+static int detect_glibc_version(int *major_out, int *minor_out) {
     static const char *const candidates[] = {
         "/lib/x86_64-linux-gnu/libc.so.6",
         "/lib/aarch64-linux-gnu/libc.so.6",
@@ -168,7 +146,7 @@ static int detect_glibc_minor(int *minor_out) {
 
     char buf[1024];
     char *const argv[] = { (char *)libc, NULL };
-    ssize_t n = capture_stdout(libc, argv, buf, sizeof(buf));
+    ssize_t n = capture_output(libc, argv, buf, sizeof(buf));
     if (n <= 0) return 0;
 
     char *nl = strchr(buf, '\n');
@@ -182,7 +160,8 @@ static int detect_glibc_minor(int *minor_out) {
     if (last == NULL) return 0;
 
     int major = 0, minor = 0;
-    if (sscanf(last, "%d.%d", &major, &minor) != 2 || major != GLIBC_MAJOR) return 0;
+    if (sscanf(last, "%d.%d", &major, &minor) != 2 || major != 2) return 0;
+    *major_out = major;
     *minor_out = minor;
     return 1;
 }
@@ -192,11 +171,10 @@ static int detect_glibc_minor(int *minor_out) {
  *   musl libc (x86_64)
  *   Version 1.2.5
  *   ...
- * on stderr (older releases) or stdout (newer releases). We capture both
- * by routing stderr→stdout in the child if needed; for simplicity here we
- * just re-pipe stderr along with stdout.
+ * on stderr (older releases) or stdout (newer releases). capture_output
+ * merges both streams, so we just scan for the "Version " token.
  */
-static int detect_musl_minor(int *minor_out) {
+static int detect_musl_version(int *major_out, int *minor_out) {
     static const char *const candidates[] = {
         "/lib/ld-musl-x86_64.so.1",
         "/lib/ld-musl-aarch64.so.1",
@@ -212,72 +190,20 @@ static int detect_musl_minor(int *minor_out) {
     }
     if (ld == NULL) return 0;
 
-    /*
-     * musl writes its banner to stderr. Fork a child that routes stderr to
-     * the read pipe, then capture.
-     */
-    int pipefd[2];
-    if (pipe(pipefd) != 0) return 0;
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return 0;
-    }
-    if (pid == 0) {
-        close(pipefd[0]);
-        if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
-        if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
-        close(pipefd[1]);
-        char *const argv[] = { (char *)ld, NULL };
-        char *const envp[] = { NULL };
-        execve(ld, argv, envp);
-        _exit(127);
-    }
-    close(pipefd[1]);
-
     char buf[1024];
-    size_t total = 0;
-    for (;;) {
-        if (total >= sizeof(buf) - 1) break;
-        ssize_t n = read(pipefd[0], buf + total, sizeof(buf) - 1 - total);
-        if (n > 0) { total += (size_t)n; continue; }
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            break;
-        }
-        break;
-    }
-    close(pipefd[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
+    char *const argv[] = { (char *)ld, NULL };
+    ssize_t n = capture_output(ld, argv, buf, sizeof(buf));
+    if (n <= 0) return 0;
 
-    if (total == 0) return 0;
-    buf[total] = '\0';
-
-    /*
-     * Look for "Version " followed by "1.X" and pull out the minor. We scan
-     * for the literal because musl's exact line ordering varies between
-     * versions.
-     */
     const char *p = strstr(buf, "Version ");
     if (p == NULL) return 0;
     p += strlen("Version ");
 
     int major = 0, minor = 0;
-    if (sscanf(p, "%d.%d", &major, &minor) != 2 || major != MUSL_MAJOR) return 0;
+    if (sscanf(p, "%d.%d", &major, &minor) != 2) return 0;
+    *major_out = major;
     *minor_out = minor;
     return 1;
-}
-
-static void emit_at_least(const char *pkg, int major, int from_minor,
-                          int to_minor, int detected_minor) {
-    int last = detected_minor;
-    if (last > to_minor) last = to_minor;
-    for (int m = from_minor; m <= last; m++) {
-        printf("//os/linux/libc/%s:at_least_%d.%d_available\n", pkg, major, m);
-    }
 }
 
 #endif /* __linux__ */
@@ -287,17 +213,16 @@ int main(void) {
     const char *libc = detect_linux_libc();
     if (libc == NULL) return 0;
 
+    int major = 0, minor = 0;
     if (strcmp(libc, "glibc") == 0) {
-        int minor = 0;
-        if (detect_glibc_minor(&minor) && minor >= GLIBC_MIN_MINOR) {
-            emit_at_least("glibc", GLIBC_MAJOR, GLIBC_MIN_MINOR,
-                          GLIBC_MAX_MINOR, minor);
+        if (detect_glibc_version(&major, &minor)) {
+            printf("//os/linux/libc/glibc:at_least_%d.%d_available\n",
+                   major, minor);
         }
     } else if (strcmp(libc, "musl") == 0) {
-        int minor = 0;
-        if (detect_musl_minor(&minor) && minor >= MUSL_MIN_MINOR) {
-            emit_at_least("musl", MUSL_MAJOR, MUSL_MIN_MINOR,
-                          MUSL_MAX_MINOR, minor);
+        if (detect_musl_version(&major, &minor)) {
+            printf("//os/linux/libc/musl:at_least_%d.%d_available\n",
+                   major, minor);
         }
     }
 #endif

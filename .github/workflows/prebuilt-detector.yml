@@ -11,6 +11,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: prebuilt-detector-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -37,12 +41,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: linux_x86_64
+          - target: linux-amd64
             runner: ubuntu-latest
-            asset: detector-linux-x86_64
-          - target: linux_aarch64
+          - target: linux-arm64
             runner: ubuntu-24.04-arm
-            asset: detector-linux-aarch64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -66,15 +68,15 @@ jobs:
         run: |
           src="bazel-bin/private/detector/detector_${{ matrix.target }}"
           mkdir -p out
-          cp "${src}" "out/${{ matrix.asset }}"
+          cp "${src}" "out/detector-${{ matrix.target }}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
-          path: out/${{ matrix.asset }}
+          name: detector-${{ matrix.target }}
+          path: out/detector-${{ matrix.target }}
 
   release:
-    name: Publish release & open versions PR
+    name: Publish release & open prebuilts PR
     needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
@@ -111,12 +113,13 @@ jobs:
             --notes-file ../NOTES.md \
             detector-*)
 
-      - name: Regenerate versions.bzl
+      - name: Regenerate prebuilts.json
         run: |
-          python3 .github/scripts/update_detector_versions.py \
+          python3 .github/scripts/update_detector_index.py \
             --tag "${{ needs.prepare.outputs.tag }}" \
             --shas artifacts/SHA256SUMS \
-            --output private/detector/versions.bzl
+            --repo "${{ github.repository }}" \
+            --output private/detector/prebuilts.json
 
       - name: Open pull request
         env:
@@ -127,9 +130,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "${branch}"
-          git add private/detector/versions.bzl
+          git add private/detector/prebuilts.json
           if git diff --cached --quiet; then
-            echo "versions.bzl is already up to date; nothing to PR."
+            echo "prebuilts.json is already up to date; nothing to PR."
             exit 0
           fi
           git commit -m "Pin detector binaries to ${tag}"

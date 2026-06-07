@@ -1,81 +1,85 @@
-"""Repository rule that detects the host's libc and libc version.
+"""Repository rule that detects the host's libc family and version.
 
-The rule generates `host.bzl` exposing `HOST_CONSTRAINT_VALUES`, a list of
-Label objects that platform definitions can splice into their
-`constraint_values` attribute. On non-Linux hosts the list is empty: every
-other relevant constraint is already known at compile time.
+Pipeline:
 
-On Linux it tries the prebuilt detector pinned in
-`private/detector/versions.bzl`. If no pin exists for the current host or
-the SHA is still a placeholder (typical for HEAD between releases), it
-falls back to compiling the detector from source using `$CC`, `clang`,
-`gcc`, or `cc` from the user's PATH.
+1. On non-Linux hosts the rule emits an empty constraint list and returns
+   immediately. Every other relevant constraint is already known at
+   compile time, so no detection is needed.
 
-The detector emits one repo-relative label per line. The rule prefixes
-each with `@platforms_contrib` and wraps it in a `Label()` call in the
-generated `host.bzl`.
+2. On Linux it tries the prebuilt detector pinned in
+   `private/detector/prebuilts.json` (hermetic-llvm-style index of
+   GitHub-release-hosted binaries). If no pin covers the host or the
+   index has no `latest_version` yet, it falls back to compiling the
+   detector from source using `$CC`, `clang`, `gcc`, or `cc`.
+
+3. The detector emits one repo-relative label per detected libc family,
+   embedding the *raw* host version (e.g.
+   `//os/linux/libc/glibc:at_least_2.41_available`). It does not know
+   which `at_least_*_available` constraints actually exist.
+
+4. The rule loads `GLIBC_VERSIONS` and `MUSL_VERSIONS` from the
+   `*_private.bzl` files and clips each detected version to the highest
+   supported value. The clipped label is wrapped in `Label(...)` and
+   exposed as `HOST_CONSTRAINT_VALUES` in the generated `host.bzl`.
 """
 
-load("//private/detector:versions.bzl", "BINARIES", "VERSION")
+load("//os/linux/libc/glibc:glibc_private.bzl", "GLIBC_VERSIONS")
+load("//os/linux/libc/musl:musl_private.bzl", "MUSL_VERSIONS")
 
 visibility("//...")
 
-_DOWNLOAD_URL_TEMPLATE = (
-    "https://github.com/bazel-contrib/platforms_contrib/releases/download/" +
-    "{version}/{asset}"
-)
-
-_PLACEHOLDER_SHA_PREFIX = "000000"
-
+_PREBUILTS_INDEX = Label("//private/detector:prebuilts.json")
 _DETECTOR_SOURCE = Label("//private/detector:src/detector.c")
 
-# Compilers to try (in order) when compiling from source. `$CC` from the env
-# wins when set.
 _COMPILER_CANDIDATES = ["clang", "gcc", "cc"]
 
-def _linux_host_key(repository_ctx):
-    """Returns the Linux host key ("linux_<cpu>") or None for non-Linux hosts."""
+# Per-family version range used for clipping the detector's output.
+_VERSION_RANGES = {
+    "//os/linux/libc/glibc": GLIBC_VERSIONS,
+    "//os/linux/libc/musl": MUSL_VERSIONS,
+}
+
+def _host_target(repository_ctx):
+    """Returns the hermetic-llvm-style "<os>-<cpu>" key (or None for non-Linux)."""
     os_name = repository_ctx.os.name.lower()
     if not os_name.startswith("linux"):
         return None
 
     arch = repository_ctx.os.arch.lower()
     if arch in ("x86_64", "amd64", "x64"):
-        return "linux_x86_64"
+        return "linux-amd64"
     if arch in ("aarch64", "arm64"):
-        return "linux_aarch64"
+        return "linux-arm64"
     fail("Unsupported Linux host CPU for platforms_contrib host detection: " + arch)
 
-def _parse_labels(stdout):
-    labels = []
-    for raw in stdout.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if not line.startswith("//"):
-            fail("platforms_contrib detector emitted non-repo-relative label: " + line)
-        labels.append(line)
-    return labels
+def _read_prebuilts_index(repository_ctx):
+    content = repository_ctx.read(repository_ctx.path(_PREBUILTS_INDEX))
+    return json.decode(content)
 
-def _download_prebuilt(repository_ctx, host_key):
-    info = BINARIES.get(host_key)
-    if info == None:
+def _prebuilt_spec(repository_ctx, target):
+    index = _read_prebuilts_index(repository_ctx)
+    version = index.get("latest_version")
+    if version == None:
         return None
-    if info["sha256"].startswith(_PLACEHOLDER_SHA_PREFIX):
+    release = index.get("releases", {}).get(version)
+    if release == None:
         return None
+    return release.get(target)
 
-    binary_name = "detector"
+def _download_prebuilt(repository_ctx, target):
+    spec = _prebuilt_spec(repository_ctx, target)
+    if spec == None:
+        return None
     repository_ctx.download(
-        url = _DOWNLOAD_URL_TEMPLATE.format(version = VERSION, asset = info["asset"]),
-        sha256 = info["sha256"],
-        output = binary_name,
+        url = spec["url"],
+        sha256 = spec["sha256"],
+        output = "detector",
         executable = True,
     )
-    return binary_name
+    return "detector"
 
 def _compile_from_source(repository_ctx):
     source = repository_ctx.path(_DETECTOR_SOURCE)
-    output_name = "detector"
 
     cc_env = repository_ctx.os.environ.get("CC", "").strip()
     candidates = []
@@ -91,11 +95,11 @@ def _compile_from_source(repository_ctx):
             continue
         tried.append(str(path))
         result = repository_ctx.execute(
-            [str(path), "-std=c11", "-Os", "-o", output_name, str(source)],
+            [str(path), "-std=c11", "-Os", "-o", "detector", str(source)],
             timeout = 120,
         )
         if result.return_code == 0:
-            return output_name
+            return "detector"
         last_error = "{}: exit {}\n{}\n{}".format(
             str(path),
             result.return_code,
@@ -110,13 +114,70 @@ def _compile_from_source(repository_ctx):
         )
     fail("platforms_contrib host detector failed to compile from source.\nLast error:\n" + last_error)
 
-def _write_outputs(repository_ctx, source, raw_labels):
+def _parse_version(s):
+    """Parses "2.39" into (2, 39). Returns None if malformed."""
+    parts = s.split(".")
+    if len(parts) != 2:
+        return None
+    if not (parts[0].isdigit() and parts[1].isdigit()):
+        return None
+    return (int(parts[0]), int(parts[1]))
+
+def _clip_to_supported(detected, supported):
+    """Returns the highest version in `supported` that is <= `detected`, or None."""
+    detected_tuple = _parse_version(detected)
+    if detected_tuple == None:
+        return None
+    best = None
+    for v in supported:
+        v_tuple = _parse_version(v)
+        if v_tuple == None:
+            continue
+        if v_tuple <= detected_tuple and (best == None or v_tuple > _parse_version(best)):
+            best = v
+    return best
+
+def _clip_label(raw_label):
+    """Clips a detector-emitted label to one that actually exists in the repo.
+
+    Returns the clipped label, or None if the detected version is older than
+    the lowest supported one (meaning the host predates everything we track,
+    so no constraint applies).
+    """
+    pkg, sep, suffix = raw_label.partition(":at_least_")
+    if not sep or not suffix.endswith("_available"):
+        fail("platforms_contrib detector emitted unexpected label: " + raw_label)
+    if pkg not in _VERSION_RANGES:
+        fail("platforms_contrib detector emitted label for unknown package: " + raw_label)
+
+    detected = suffix[:-len("_available")]
+    clipped = _clip_to_supported(detected, _VERSION_RANGES[pkg])
+    if clipped == None:
+        return None
+    return "{}:at_least_{}_available".format(pkg, clipped)
+
+def _parse_labels(stdout):
+    raw_labels = []
+    for raw in stdout.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not line.startswith("//"):
+            fail("platforms_contrib detector emitted non-repo-relative label: " + line)
+        raw_labels.append(line)
+    return raw_labels
+
+def _write_outputs(repository_ctx, source, raw_labels, clipped_labels):
     label_calls = [
         "Label(\"@platforms_contrib{}\")".format(label)
-        for label in raw_labels
+        for label in clipped_labels
     ]
     rendered_list = "[\n" + "".join(["    " + call + ",\n" for call in label_calls]) + "]"
-    raw_block = "".join(["#   " + l + "\n" for l in raw_labels]) or "#   (none)\n"
+
+    raw_block = "".join(["#   raw:     " + l + "\n" for l in raw_labels])
+    clipped_block = "".join(["#   clipped: " + l + "\n" for l in clipped_labels])
+    if not raw_block:
+        raw_block = "#   (none)\n"
 
     repository_ctx.file(
         "BUILD.bazel",
@@ -127,19 +188,20 @@ def _write_outputs(repository_ctx, source, raw_labels):
         "host.bzl",
         "# Generated by @platforms_contrib//private:host_detect.bzl.\n" +
         "# Source: " + source + "\n" +
-        "# Detected labels:\n" +
+        "# Detector output:\n" +
         raw_block +
+        clipped_block +
         "\n" +
         "HOST_CONSTRAINT_VALUES = " + rendered_list + "\n",
     )
 
 def _host_detect_impl(repository_ctx):
-    host_key = _linux_host_key(repository_ctx)
-    if host_key == None:
-        _write_outputs(repository_ctx, "non-linux", [])
+    target = _host_target(repository_ctx)
+    if target == None:
+        _write_outputs(repository_ctx, "non-linux", [], [])
         return
 
-    binary_name = _download_prebuilt(repository_ctx, host_key)
+    binary_name = _download_prebuilt(repository_ctx, target)
     source = "prebuilt"
     if binary_name == None:
         binary_name = _compile_from_source(repository_ctx)
@@ -156,7 +218,14 @@ def _host_detect_impl(repository_ctx):
             result.stderr,
         ))
 
-    _write_outputs(repository_ctx, source, _parse_labels(result.stdout))
+    raw_labels = _parse_labels(result.stdout)
+    clipped_labels = []
+    for label in raw_labels:
+        clipped = _clip_label(label)
+        if clipped != None:
+            clipped_labels.append(clipped)
+
+    _write_outputs(repository_ctx, source, raw_labels, clipped_labels)
 
 host_detect = repository_rule(
     implementation = _host_detect_impl,
