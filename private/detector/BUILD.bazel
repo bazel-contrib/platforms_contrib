@@ -1,0 +1,60 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+# The C source is also referenced by @platforms_contrib//private:host_detect.bzl
+# as a fallback when no prebuilt binary is available for the host, so make it
+# publicly visible as a source label.
+exports_files(
+    ["src/detector.c"],
+    visibility = ["//visibility:public"],
+)
+
+# Detector binaries shipped via GitHub releases. Linux-only — every other
+# host platform configuration is already known at compile time, so the
+# detector never has anything to report there.
+#
+# Build flags aim for size: -Os, no rtti/exceptions (C only, so no flags
+# needed), and -s to strip. On Linux the binary is fully static against
+# musl (provided by the @llvm toolchain) so it runs regardless of which
+# libc the host actually uses.
+
+_COMMON_COPTS = [
+    "-std=c11",
+    "-Os",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-ffunction-sections",
+    "-fdata-sections",
+]
+
+_POSIX_LINKOPTS = [
+    "-Wl,--gc-sections",
+    "-s",
+    "-static",
+]
+
+cc_binary(
+    name = "detector_linux_x86_64",
+    srcs = ["src/detector.c"],
+    copts = _COMMON_COPTS,
+    features = ["fully_static_link"],
+    linkopts = _POSIX_LINKOPTS,
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+cc_binary(
+    name = "detector_linux_aarch64",
+    srcs = ["src/detector.c"],
+    copts = _COMMON_COPTS,
+    features = ["fully_static_link"],
+    linkopts = _POSIX_LINKOPTS,
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)

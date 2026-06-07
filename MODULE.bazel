@@ -3,3 +3,11 @@ module(name = "platforms_contrib")
 bazel_dep(name = "bazel_features", version = "1.48.1")
 bazel_dep(name = "package_metadata", version = "0.0.7")
 bazel_dep(name = "platforms", version = "1.0.0")
+
+host_detect_extension = use_extension("//private:extensions.bzl", "host_detect_extension")
+use_repo(host_detect_extension, "platforms_contrib_host_detected")
+
+bazel_dep(name = "rules_cc", version = "0.2.18", dev_dependency = True)
+bazel_dep(name = "llvm", version = "0.8.6", dev_dependency = True)
+
+register_toolchains("@llvm//toolchain:all", dev_dependency = True)

@@ -1,0 +1,12 @@
+load("@platforms_contrib_host_detected//:host.bzl", "HOST_CONSTRAINT_VALUES")
+
+# Mirrors @platforms//host but additionally pins the libc-availability
+# constraint values from @platforms_contrib that cannot be inferred from
+# compile-time host info alone. On non-Linux hosts the list is empty and
+# this platform is functionally identical to its parent.
+platform(
+    name = "host",
+    constraint_values = HOST_CONSTRAINT_VALUES,
+    parents = ["@platforms//host"],
+    visibility = ["//visibility:public"],
+)
