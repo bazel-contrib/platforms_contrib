@@ -72,8 +72,11 @@ foo_binary(
 
 genrule(
     name = "use_binaries",
+    srcs = [
+        ":my_modern_binary",
+        ":my_compatible_binary",
+    ],
     outs = ["output_srcs.txt"],
-    srcs = [":my_modern_binary", ":my_compatible_binary"],
     cmd = """
     echo "Using modern binary..." > $@
     $(location :my_modern_binary) >> $@

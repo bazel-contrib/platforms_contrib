@@ -19,12 +19,6 @@ load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
 load(":glibc_private.bzl", "GLIBC_VERSIONS", "target_glibc_version")
 
 alias(
-    name = "not_available",
-    actual = ":at_least_{}_not_available".format(GLIBC_VERSIONS[0]),
-    visibility = ["//visibility:public"],
-)
-
-alias(
     name = "available",
     actual = ":at_least_{}_available".format(GLIBC_VERSIONS[0]),
     visibility = ["//visibility:public"],
@@ -34,13 +28,7 @@ alias(
     (
         compat_constraint_setting(
             name = "at_least_{}".format(GLIBC_VERSIONS[i]),
-            default_constraint_value = ":at_least_{}_not_available".format(GLIBC_VERSIONS[i]),
-            refines_constraint_value = "@platforms//os:linux" if i == 0 else ":at_least_{}".format(GLIBC_VERSIONS[i - 1]),
-        ),
-        constraint_value(
-            name = "at_least_{}_not_available".format(GLIBC_VERSIONS[i]),
-            constraint_setting = ":at_least_{}".format(GLIBC_VERSIONS[i]),
-            visibility = ["//visibility:public"],
+            refines_constraint_value = "@platforms//os:linux" if i == 0 else ":at_least_{}_available".format(GLIBC_VERSIONS[i - 1]),
         ),
         constraint_value(
             name = "at_least_{}_available".format(GLIBC_VERSIONS[i]),
