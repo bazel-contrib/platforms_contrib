@@ -1,0 +1,107 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@platforms_contrib//cpu/x86_64:x86_64.bzl", "x86_64_level_constraints")
+load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
+load(":cfg_variants.bzl", "v4_genrule")
+
+platform(
+    name = "x86_64_baseline",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "x86_64_v2",
+    # The x86_64_level_constraints() macro returns the appropriate set of feature constraints for the
+    # given level, including all lower levels.
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+    ] + x86_64_level_constraints("v2"),
+)
+
+platform(
+    name = "x86_64_v4",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+    ] + x86_64_level_constraints("v4"),
+)
+
+foo_toolchain(
+    name = "avx512_foo_toolchain",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms_contrib//cpu/x86_64/feature:avx512f",
+    ],
+    text = "built for x86-64-v4",
+)
+
+foo_toolchain(
+    name = "baseline_foo_toolchain",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+    text = "built for x86-64-v1",
+)
+
+# Expected to use the AVX-512 toolchain.
+foo_binary(
+    name = "my_v4_binary",
+    target_platform = ":x86_64_v4",
+)
+
+# Expected to fall back to the baseline toolchain since the AVX-512 toolchain can't target such an
+# old microarchitecture level.
+foo_binary(
+    name = "my_v2_binary",
+    target_platform = ":x86_64_v2",
+)
+
+# Expected to fall back to the baseline toolchain: a platform with no feature constraints at all
+# still satisfies the baseline (v1) toolchain.
+foo_binary(
+    name = "my_baseline_binary",
+    target_platform = ":x86_64_baseline",
+)
+
+genrule(
+    name = "use_binaries",
+    srcs = [
+        ":my_v4_binary",
+        ":my_v2_binary",
+        ":my_baseline_binary",
+    ],
+    outs = ["output_srcs.txt"],
+    cmd = """
+    echo "Using v4 binary..." > $@
+    $(location :my_v4_binary) >> $@
+    echo "Using v2 binary..." >> $@
+    $(location :my_v2_binary) >> $@
+    echo "Using baseline binary..." >> $@
+    $(location :my_baseline_binary) >> $@
+    """,
+)
+
+diff_test(
+    name = "use_binaries_test",
+    file1 = ":output_srcs.txt",
+    file2 = "expected_output_srcs.txt",
+)
+
+# The target platform is forced to x86_64_v4, so the select() resolves to the most specialized
+# matching level: at_least_v4 wins because its constraints are a superset of the lower levels'.
+v4_genrule(
+    name = "detect_level",
+    outs = ["output_level.txt"],
+    cmd = "echo " + select({
+        "@platforms_contrib//cpu/x86_64:at_least_v4": "x86-64-v4",
+        "@platforms_contrib//cpu/x86_64:at_least_v3": "x86-64-v3",
+        "@platforms_contrib//cpu/x86_64:at_least_v2": "x86-64-v2",
+        "//conditions:default": "x86-64-v1",
+    }) + " > $@",
+)
+
+diff_test(
+    name = "detect_level_test",
+    file1 = ":detect_level",
+    file2 = "expected_output_level.txt",
+)
