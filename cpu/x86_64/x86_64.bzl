@@ -5,6 +5,6 @@ def x86_64_level_constraints(level):
     if level not in FEATURES_UP_TO:
         fail("Unsupported x86-64 microarchitecture level: {level}".format(level = level))
     return [
-        Label("//cpu/x86_64/feature/{feature}:available".format(feature = feature))
+        Label("//cpu/x86_64/feature:{feature}".format(feature = feature))
         for feature in FEATURES_UP_TO[level]
     ]

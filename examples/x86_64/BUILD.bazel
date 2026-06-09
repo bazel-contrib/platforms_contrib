@@ -30,7 +30,7 @@ foo_toolchain(
     name = "avx512_foo_toolchain",
     target_compatible_with = [
         "@platforms//cpu:x86_64",
-        "@platforms_contrib//cpu/x86_64/feature/avx512f:available",
+        "@platforms_contrib//cpu/x86_64/feature:avx512f",
     ],
     text = "built for x86-64-v4",
 )

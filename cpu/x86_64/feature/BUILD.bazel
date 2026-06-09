@@ -1,0 +1,23 @@
+# Constraints describing individual x86-64 CPU features.
+#
+# For each feature, this package defines:
+#
+#   * a `<feature>_setting` constraint setting,
+#   * a `<feature>` constraint value indicating the feature is available, and
+#   * a `no_<feature>` constraint value (the default) indicating it is not.
+#
+# Reference these values directly, e.g. `@platforms_contrib//cpu/x86_64/feature:avx`.
+
+load("//cpu/x86_64:x86_64_private.bzl", "X86_64_FEATURES")
+load(":feature.bzl", "x86_64_feature")
+
+# The v1 baseline features are available on every x86-64 platform, so their constraint settings
+# default to the available value. All higher-level features default to unavailable.
+[
+    x86_64_feature(
+        feature,
+        available_by_default = level == "v1",
+    )
+    for level, features in X86_64_FEATURES.items()
+    for feature in features
+]
