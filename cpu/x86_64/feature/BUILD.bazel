@@ -8,7 +8,12 @@
 #
 # Reference these values directly, e.g. `@platforms_contrib//cpu/x86_64/feature:avx`.
 
-load("//cpu/x86_64:x86_64_private.bzl", "X86_64_FEATURES", "X86_64_FEATURES_WITHOUT_LEVEL")
+load(
+    "//cpu/x86_64:x86_64_private.bzl",
+    "X86_64_FEATURES",
+    "X86_64_FEATURES_WITHOUT_LEVEL",
+    "X86_64_FEATURE_REFINEMENTS",
+)
 load(":feature.bzl", "x86_64_feature")
 
 # The v1 baseline features are available on every x86-64 platform, so their constraint settings
@@ -23,8 +28,11 @@ load(":feature.bzl", "x86_64_feature")
 ]
 
 # Features that clang supports but that are not part of any microarchitecture level are optional and
-# thus default to unavailable.
+# thus default to unavailable. Features that extend another feature refine its constraint value.
 [
-    x86_64_feature(feature)
+    x86_64_feature(
+        feature,
+        refines = X86_64_FEATURE_REFINEMENTS.get(feature),
+    )
     for feature in X86_64_FEATURES_WITHOUT_LEVEL
 ]

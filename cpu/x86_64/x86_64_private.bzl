@@ -104,6 +104,45 @@ X86_64_FEATURES_WITHOUT_LEVEL = [
     "xsaves",
 ]
 
+# Maps a feature to another feature that it extends. The feature's constraint setting refines the
+# parent feature's `available` constraint value, expressing that the feature can only be present on a
+# platform that also has the parent. For example, the AVX-512 extensions require AVX-512 Foundation
+# (avx512f), and the wider/vectorized variants of AES and carry-less multiplication build on their
+# scalar counterparts. Features not listed here refine `@platforms//cpu:x86_64` and are otherwise
+# independent.
+X86_64_FEATURE_REFINEMENTS = {
+    # AVX-512 extensions beyond the v4 baseline all build on AVX-512 Foundation.
+    "avx512bf16": "avx512f",
+    "avx512bitalg": "avx512f",
+    "avx512fp16": "avx512f",
+    "avx512ifma": "avx512f",
+    "avx512vbmi": "avx512f",
+    "avx512vbmi2": "avx512f",
+    "avx512vnni": "avx512f",
+    "avx512vp2intersect": "avx512f",
+    "avx512vpopcntdq": "avx512f",
+    # AMX extensions build on the AMX tile architecture.
+    "amx_bf16": "amx_tile",
+    "amx_complex": "amx_tile",
+    "amx_fp16": "amx_tile",
+    "amx_int8": "amx_tile",
+    "amx_avx512": "amx_tile",
+    "amx_tf32": "amx_tile",
+    # The extended xsave instructions build on the base xsave feature.
+    "xsavec": "xsave",
+    "xsaveopt": "xsave",
+    "xsaves": "xsave",
+    # Vectorized variants build on their scalar counterparts.
+    "vaes": "aes",
+    "vpclmulqdq": "pclmul",
+    # Key Locker wide instructions build on Key Locker.
+    "widekl": "kl",
+    # The AVX10 versions and vector lengths form a chain.
+    "avx10_1_512": "avx10_1_256",
+    "avx10_2_256": "avx10_1_256",
+    "avx10_2_512": "avx10_2_256",
+}
+
 def _features_up_to(level):
     features = []
     for lvl in X86_64_LEVELS:
