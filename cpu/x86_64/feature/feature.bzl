@@ -20,7 +20,7 @@ def x86_64_feature(name, available_by_default = False, refines = None):
     """
     compat_constraint_setting(
         name = name + "_setting",
-        default_constraint_value = (":" + name) if available_by_default else (":no_" + name),
+        default_constraint_value = name if available_by_default else ("no_" + name),
         refines_constraint_value = refines or "@platforms//cpu:x86_64",
     )
     native.constraint_value(
