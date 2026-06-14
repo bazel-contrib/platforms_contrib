@@ -9,6 +9,101 @@ X86_64_FEATURES = {
 
 X86_64_LEVELS = X86_64_FEATURES.keys()
 
+# Additional CPU features that clang exposes as `-m<feature>` flags but that are not part of any
+# x86-64 microarchitecture level (v1-v4). These describe optional hardware capabilities such as
+# AES-NI, carry-less multiplication, or AVX-512 extensions beyond the v4 baseline.
+#
+# The list tracks the feature set defined in current LLVM/clang
+# (`llvm/lib/Target/X86/X86.td` together with clang's x86 `-m` driver flags). Names mirror clang's
+# feature flags with `.` and `-` replaced by `_` (e.g. clang's `-msse4a`, `-mamx-bf16`, and
+# `-mavx10.1-256` become `sse4a`, `amx_bf16`, and `avx10_1_256`). Purely codegen/tuning options that
+# do not correspond to a hardware capability (e.g. `retpoline`, `soft-float`, `vzeroupper`) are
+# intentionally excluded, as are legacy features no longer supported upstream (e.g. `3dnow`,
+# `avx512er`, `avx512pf`, `prefetchwt1`).
+X86_64_FEATURES_WITHOUT_LEVEL = [
+    "adx",
+    "aes",
+    "amx_avx512",
+    "amx_bf16",
+    "amx_complex",
+    "amx_fp16",
+    "amx_int8",
+    "amx_tf32",
+    "amx_tile",
+    "apxf",
+    "avx10_1_256",
+    "avx10_1_512",
+    "avx10_2_256",
+    "avx10_2_512",
+    "avx512bf16",
+    "avx512bitalg",
+    "avx512fp16",
+    "avx512ifma",
+    "avx512vbmi",
+    "avx512vbmi2",
+    "avx512vnni",
+    "avx512vp2intersect",
+    "avx512vpopcntdq",
+    "avxifma",
+    "avxneconvert",
+    "avxvnni",
+    "avxvnniint16",
+    "avxvnniint8",
+    "cldemote",
+    "clflushopt",
+    "clwb",
+    "clzero",
+    "cmpccxadd",
+    "crc32",
+    "enqcmd",
+    "evex512",
+    "fma4",
+    "fsgsbase",
+    "gfni",
+    "hreset",
+    "invpcid",
+    "kl",
+    "lwp",
+    "movdir64b",
+    "movdiri",
+    "movrs",
+    "mwaitx",
+    "pclmul",
+    "pconfig",
+    "pku",
+    "prefetchi",
+    "prfchw",
+    "ptwrite",
+    "raoint",
+    "rdpid",
+    "rdpru",
+    "rdrnd",
+    "rdseed",
+    "rtm",
+    "serialize",
+    "sgx",
+    "sha",
+    "sha512",
+    "shstk",
+    "sm3",
+    "sm4",
+    "sse4a",
+    "tbm",
+    "tsxldtrk",
+    "uintr",
+    "usermsr",
+    "vaes",
+    "vpclmulqdq",
+    "waitpkg",
+    "wbnoinvd",
+    "widekl",
+    "xop",
+    "xsave",
+    "xsavec",
+    "xsaveopt",
+    "xsaves",
+]
+
 def _features_up_to(level):
     features = []
     for lvl in X86_64_LEVELS:
