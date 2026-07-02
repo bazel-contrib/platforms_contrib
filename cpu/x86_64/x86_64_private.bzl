@@ -1,4 +1,8 @@
-visibility(["//cpu/x86_64/..."])
+visibility([
+    "//cpu/x86_64/...",
+    # For the mapping of detected CPU features to constraint values.
+    "//host/...",
+])
 
 X86_64_FEATURES = {
     "v1": ["cmov", "cx8", "fpu", "fxsr", "mmx", "osfxsr", "sce", "sse", "sse2"],

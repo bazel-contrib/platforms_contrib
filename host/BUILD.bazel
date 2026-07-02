@@ -1,0 +1,16 @@
+# An autodetected platform describing the host machine: `@platforms//host` plus the constraint
+# values from this module that match the host, i.e. the available glibc/musl version on Linux and
+# the available x86-64 CPU features (and thus microarchitecture levels).
+#
+# Usage: build with `--platforms=@platforms_contrib//host`.
+#
+# Detection runs lazily in a repository rule the first time this alias is resolved, so projects
+# that don't reference it don't pay for it. CPU features are detected with a prebuilt binary (see
+# //prebuilt); on hosts for which no prebuilt binary is available, only the libc constraints are
+# detected. Set PLATFORMS_CONTRIB_HOST_DETECTION=off to skip CPU feature detection entirely (see
+# host_platform.bzl in the private subpackage for details).
+alias(
+    name = "host",
+    actual = "@platforms_contrib_host//:host",
+    visibility = ["//visibility:public"],
+)

@@ -1,5 +1,27 @@
 module(name = "platforms_contrib")
 
-bazel_dep(name = "bazel_features", version = "1.48.1")
+bazel_dep(name = "bazel_features", version = "1.50.0")
 bazel_dep(name = "package_metadata", version = "0.0.7")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.1.0")
+
+# Generates the autodetected host platform exposed as //host.
+host_platform = use_repo_rule("//host/private:host_platform.bzl", "host_platform_repository")
+
+host_platform(name = "platforms_contrib_host")
+
+### Dependencies only used to cross-compile the prebuilt CPU feature detector (see //prebuilt).
+
+bazel_dep(name = "bazel_lib", version = "3.2.2", dev_dependency = True)
+bazel_dep(name = "cpu_features", version = "0.11.0", dev_dependency = True)
+bazel_dep(name = "llvm", version = "0.8.11", dev_dependency = True)
+bazel_dep(name = "rules_cc", version = "0.2.20", dev_dependency = True)
+
+# cpu_features 0.11.0 doesn't list include/internal/windows_utils.h as a header of :cpuinfo on
+# arm64, which breaks the windows-arm64 cross-build of //prebuilt:detect_cpu. Fixed upstream in
+# https://github.com/google/cpu_features/pull/467. Overrides only take effect in the root module,
+# i.e. exactly when building the prebuilt detectors from this repository.
+single_version_override(
+    module_name = "cpu_features",
+    patch_strip = 1,
+    patches = ["//patches:cpu_features.windows_arm64_hdrs.patch"],
+)

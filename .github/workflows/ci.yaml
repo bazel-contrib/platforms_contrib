@@ -19,16 +19,25 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         bazelversion: [8.*, 9.*, last_green]
         folder: [examples]
+        os: [ubuntu-latest]
         include:
           - bazelversion: 9.*
             folder: "."
+            os: ubuntu-latest
+          # Exercise host platform detection on all supported operating systems.
+          - bazelversion: 9.*
+            folder: examples
+            os: macos-latest
+          - bazelversion: 9.*
+            folder: examples
+            os: windows-latest
 
     steps:
       - uses: actions/checkout@v5

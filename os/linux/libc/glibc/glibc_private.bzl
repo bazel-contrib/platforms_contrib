@@ -1,4 +1,8 @@
-visibility("private")
+visibility([
+    "//os/linux/libc/glibc",
+    # For clamping the detected glibc version to the known versions.
+    "//host/...",
+])
 
 GLIBC_VERSIONS = [
     "2." + str(i)

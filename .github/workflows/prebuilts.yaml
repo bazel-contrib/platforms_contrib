@@ -1,0 +1,73 @@
+name: Prebuilts
+
+# Builds the CPU feature detector for all supported host platforms and publishes the binaries as
+# GitHub release artifacts. Trigger by pushing a `prebuilts-v*` tag (see release-prebuilts.sh),
+# then update PREBUILT_DETECTORS in host/private/prebuilts.bzl with the snippet printed in the
+# release notes.
+on:
+  push:
+    tags:
+      - "prebuilts-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.*" > .bazelversion
+
+      - name: Build detectors for all platforms
+        run: bazel build --config=prebuilts //prebuilt:for_all_platforms
+
+      - name: Stage artifacts
+        run: |
+          mkdir dist
+          for mapping in \
+              "linux_x86_64_musl=detect_cpu_linux_amd64" \
+              "linux_aarch64_musl=detect_cpu_linux_arm64" \
+              "macos_x86_64=detect_cpu_macos_amd64" \
+              "macos_aarch64=detect_cpu_macos_arm64" \
+              "windows_x86_64=detect_cpu_windows_amd64.exe" \
+              "windows_aarch64=detect_cpu_windows_arm64.exe"; do
+            platform="${mapping%%=*}"
+            artifact="${mapping#*=}"
+            src="$(bazel cquery --config=prebuilts --output=files "//prebuilt:for_${platform}")"
+            cp "${src}" "dist/${artifact}"
+          done
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Prebuilt CPU feature detector binaries for \`@platforms_contrib//host\`."
+            echo
+            echo "Update \`PREBUILT_DETECTORS\` in \`host/private/prebuilts.bzl\` to:"
+            echo
+            echo '```python'
+            echo "PREBUILT_DETECTORS = {"
+            for artifact in dist/*; do
+              name="$(basename "${artifact}")"
+              # detect_cpu_<os>_<arch>[.exe]
+              os_arch="${name#detect_cpu_}"
+              os_arch="${os_arch%.exe}"
+              os="${os_arch%%_*}"
+              arch="${os_arch#*_}"
+              integrity="sha256-$(openssl dgst -sha256 -binary "${artifact}" | base64)"
+              echo "    (\"${os}\", \"${arch}\"): struct("
+              echo "        url = \"https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${name}\","
+              echo "        integrity = \"${integrity}\","
+              echo "    ),"
+            done
+            echo "}"
+            echo '```'
+          } > notes.md
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file notes.md

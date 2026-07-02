@@ -1,4 +1,8 @@
-visibility("private")
+visibility([
+    "//os/linux/libc/musl",
+    # For clamping the detected musl version to the known versions.
+    "//host/...",
+])
 
 MUSL_VERSIONS = [
     "1." + str(i)

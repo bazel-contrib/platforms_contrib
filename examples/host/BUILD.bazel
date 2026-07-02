@@ -1,0 +1,62 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":cfg_variants.bzl", "host_genrule")
+
+# Writes the libc version available on the autodetected host platform (empty on non-Linux hosts).
+host_genrule(
+    name = "detect_libc",
+    outs = ["output_libc.txt"],
+    cmd = """echo "glibc=$(GLIBC_VERSION) musl=$(MUSL_VERSION)" > $@""",
+    toolchains = [
+        "@platforms_contrib//os/linux/libc/glibc:target_version",
+        "@platforms_contrib//os/linux/libc/musl:target_version",
+    ],
+)
+
+# Writes the x86-64 microarchitecture level of the autodetected host platform, using the fact that
+# the most specialized matching level wins in a select().
+host_genrule(
+    name = "detect_level",
+    outs = ["output_level.txt"],
+    cmd = "echo " + select({
+        "@platforms_contrib//cpu/x86_64:at_least_v4": "x86-64-v4",
+        "@platforms_contrib//cpu/x86_64:at_least_v3": "x86-64-v3",
+        "@platforms_contrib//cpu/x86_64:at_least_v2": "x86-64-v2",
+        "//conditions:default": "x86-64-v1",
+    }) + " > $@",
+)
+
+# Building under the host platform exercises the full detection pipeline (repository rule,
+# detector download/bootstrap, and constraint mapping) on every OS, even where the assertions
+# below don't apply.
+build_test(
+    name = "host_platform_build_test",
+    targets = [
+        ":detect_libc",
+        ":detect_level",
+    ],
+)
+
+# Any Linux host is expected to have either glibc or musl.
+sh_test(
+    name = "detect_libc_test",
+    size = "small",
+    srcs = ["detect_libc_test.sh"],
+    args = ["$(rootpath :detect_libc)"],
+    data = [":detect_libc"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Any x86-64 machine that runs Bazel supports at least x86-64-v2 (CI machines are usually v3), so
+# detection must find a level above the v1 baseline.
+sh_test(
+    name = "detect_level_test",
+    size = "small",
+    srcs = ["detect_level_test.sh"],
+    args = ["$(rootpath :detect_level)"],
+    data = [":detect_level"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)

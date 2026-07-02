@@ -1,0 +1,47 @@
+# Cross-compiles the CPU feature detector used by //host for all supported host platforms with
+# the hermetic `llvm` toolchain (a dev dependency), following the approach used by
+# https://github.com/hermeticbuild/codesign.bzl. Build with `--config=prebuilts`, which registers
+# the llvm toolchains. The prebuilts.yaml workflow builds :for_all_platforms on `prebuilts-v*`
+# tags and publishes the binaries as GitHub release artifacts, which are then referenced from
+# //host/private:prebuilts.bzl.
+
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "detect_cpu",
+    srcs = ["detect_cpu.c"],
+    deps = ["@cpu_features//:cpuinfo"],
+)
+
+# Tagged manual: these cross-compile the llvm toolchain's runtimes from source, which is far too
+# expensive for regular CI or wildcard builds.
+[
+    platform_transition_filegroup(
+        name = "for_" + platform,
+        srcs = [":detect_cpu"],
+        tags = ["manual"],
+        target_platform = "@llvm//platforms:" + platform,
+    )
+    for platform in [
+        "linux_x86_64_musl",
+        "linux_aarch64_musl",
+        "macos_x86_64",
+        "macos_aarch64",
+        "windows_x86_64",
+        "windows_aarch64",
+    ]
+]
+
+filegroup(
+    name = "for_all_platforms",
+    srcs = [
+        "for_linux_aarch64_musl",
+        "for_linux_x86_64_musl",
+        "for_macos_aarch64",
+        "for_macos_x86_64",
+        "for_windows_aarch64",
+        "for_windows_x86_64",
+    ],
+    tags = ["manual"],
+)
