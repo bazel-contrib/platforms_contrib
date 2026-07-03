@@ -9,22 +9,23 @@ X86_64_FEATURES = {
 
 X86_64_LEVELS = X86_64_FEATURES.keys()
 
-# Additional CPU features that clang exposes as `-m<feature>` flags but that are not part of any
-# x86-64 microarchitecture level (v1-v4). These describe optional hardware capabilities such as
-# AES-NI, carry-less multiplication, or AVX-512 extensions beyond the v4 baseline.
+# Additional CPU features that are not part of any x86-64 microarchitecture level (v1-v4). These
+# describe optional hardware capabilities such as AES-NI, carry-less multiplication, or AVX-512
+# extensions beyond the v4 baseline.
 #
-# The list tracks the feature set defined in current LLVM/clang
-# (`llvm/lib/Target/X86/X86.td` together with clang's x86 `-m` driver flags). Names mirror clang's
-# feature flags with `.` and `-` replaced by `_` (e.g. clang's `-msse4a`, `-mamx-bf16`, and
-# `-mavx10.1-256` become `sse4a`, `amx_bf16`, and `avx10_1_256`), except where the cpu_features
-# library (https://github.com/google/cpu_features) uses a different name for the same capability,
-# in which case the cpu_features name is preferred so that features detected on the host (see
-# //host) map to constraint values directly: `cx16` (clang: `cmpxchg16b`), `fma3` (`fma`),
-# `pclmulqdq` (`pclmul`), `avx_vnni` (`avxvnni`), `avx512_bf16` (`avx512bf16`), `avx512_fp16`
-# (`avx512fp16`), and `avx512_vp2intersect` (`avx512vp2intersect`). Purely codegen/tuning options
-# that do not correspond to a hardware capability (e.g. `retpoline`, `soft-float`, `vzeroupper`)
-# are intentionally excluded, as are legacy features no longer supported upstream (e.g. `3dnow`,
-# `avx512er`, `avx512pf`, `prefetchwt1`).
+# The list tracks CPUID hardware capabilities, first and foremost those reported by the
+# cpu_features library (https://github.com/google/cpu_features), whose names are also used for
+# the constraint values so that features detected on the host (see //host) map to constraint
+# values directly. Capabilities not (yet) covered by cpu_features use their common lowercase name
+# with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
+#
+# Compiler options that do not correspond to a dedicated hardware capability are intentionally
+# excluded: purely codegen/tuning options (e.g. `retpoline`, `soft-float`, `vzeroupper`,
+# `evex512`), features without their own CPUID bit (e.g. `crc32`, which is part of SSE4.2), and
+# legacy features no longer supported by current hardware and toolchains (e.g. `3dnow`,
+# `avx512er`, `avx512pf`, `prefetchwt1`). The AVX10 constraints follow the revised AVX10
+# specification, which dropped the 256-/512-bit vector length split: `avx10_1` and `avx10_2`
+# always include 512-bit vectors.
 X86_64_FEATURES_WITHOUT_LEVEL = [
     "adx",
     "aes",
@@ -36,10 +37,8 @@ X86_64_FEATURES_WITHOUT_LEVEL = [
     "amx_tf32",
     "amx_tile",
     "apxf",
-    "avx10_1_256",
-    "avx10_1_512",
-    "avx10_2_256",
-    "avx10_2_512",
+    "avx10_1",
+    "avx10_2",
     "avx512_bf16",
     "avx512_fp16",
     "avx512_vp2intersect",
@@ -59,11 +58,14 @@ X86_64_FEATURES_WITHOUT_LEVEL = [
     "clwb",
     "clzero",
     "cmpccxadd",
-    "crc32",
     "enqcmd",
-    "evex512",
+    "erms",
     "fma4",
+    "fs_rep_cmpsb_scasb",
+    "fs_rep_mov",
+    "fs_rep_stosb",
     "fsgsbase",
+    "fz_rep_movsb",
     "gfni",
     "hreset",
     "invpcid",
@@ -142,10 +144,8 @@ X86_64_FEATURE_REFINEMENTS = {
     "vpclmulqdq": "pclmulqdq",
     # Key Locker wide instructions build on Key Locker.
     "widekl": "kl",
-    # The AVX10 versions and vector lengths form a chain.
-    "avx10_1_512": "avx10_1_256",
-    "avx10_2_256": "avx10_1_256",
-    "avx10_2_512": "avx10_2_256",
+    # The AVX10 versions form a chain.
+    "avx10_2": "avx10_1",
 }
 
 def _features_up_to(level):
