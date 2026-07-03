@@ -27,8 +27,8 @@ load(":feature.bzl", "x86_64_feature")
     for feature in features
 ]
 
-# Features that clang supports but that are not part of any microarchitecture level are optional and
-# thus default to unavailable. Features that extend another feature refine its constraint value.
+# Features that are not part of any microarchitecture level are optional and thus default to
+# unavailable. Features that extend another feature refine its constraint value.
 [
     x86_64_feature(
         feature,
