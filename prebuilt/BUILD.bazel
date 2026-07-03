@@ -1,9 +1,8 @@
 # Cross-compiles the CPU feature detector used by //host for all supported host platforms with
-# the hermetic `llvm` toolchain (a dev dependency), following the approach used by
-# https://github.com/hermeticbuild/codesign.bzl. Build with `--config=prebuilts`, which registers
-# the llvm toolchains. The prebuilts.yaml workflow builds :for_all_platforms on `prebuilts-v*`
-# tags and publishes the binaries as GitHub release artifacts, which are then referenced from
-# //host/private:prebuilts.bzl.
+# the hermetic `llvm` toolchain (registered as a dev dependency in MODULE.bazel), following the
+# approach used by https://github.com/hermeticbuild/codesign.bzl. The prebuilts.yaml workflow
+# builds :for_all_platforms on `prebuilts-v*` tags and publishes the binaries as GitHub release
+# artifacts, which are then referenced from //host/private:prebuilts.bzl.
 
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")

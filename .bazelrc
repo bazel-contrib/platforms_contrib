@@ -1,8 +1,5 @@
 # Debug where options came from.
 common:ci --announce_rc
-# Cross-compile the prebuilt CPU feature detectors in //prebuilt with the hermetic LLVM toolchain
-# (a dev dependency, hence not registered in MODULE.bazel).
-common:prebuilts --extra_toolchains=@llvm//toolchain:all
 # Don't rely on test logs being easily accessible from the test runner,
 # though it makes the log noisier.
 common:ci --test_output=errors

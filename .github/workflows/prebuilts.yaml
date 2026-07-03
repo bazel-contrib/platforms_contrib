@@ -23,7 +23,7 @@ jobs:
         run: echo "9.*" > .bazelversion
 
       - name: Build detectors for all platforms
-        run: bazel build --config=prebuilts //prebuilt:for_all_platforms
+        run: bazel build //prebuilt:for_all_platforms
 
       - name: Stage artifacts
         run: |
@@ -37,7 +37,7 @@ jobs:
               "windows_aarch64=detect_cpu_windows_arm64.exe"; do
             platform="${mapping%%=*}"
             artifact="${mapping#*=}"
-            src="$(bazel cquery --config=prebuilts --output=files "//prebuilt:for_${platform}")"
+            src="$(bazel cquery --output=files "//prebuilt:for_${platform}")"
             cp "${src}" "dist/${artifact}"
           done
 

@@ -16,6 +16,11 @@ bazel_dep(name = "cpu_features", version = "0.11.0", dev_dependency = True)
 bazel_dep(name = "llvm", version = "0.8.11", dev_dependency = True)
 bazel_dep(name = "rules_cc", version = "0.2.20", dev_dependency = True)
 
+register_toolchains(
+    "@llvm//toolchain:all",
+    dev_dependency = True,
+)
+
 # cpu_features 0.11.0 doesn't list include/internal/windows_utils.h as a header of :cpuinfo on
 # arm64, which breaks the windows-arm64 cross-build of //prebuilt:detect_cpu. Fixed upstream in
 # https://github.com/google/cpu_features/pull/467. Overrides only take effect in the root module,
