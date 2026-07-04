@@ -43,36 +43,79 @@ jobs:
         run: bazel test --config=ci //...
 
   host-libc-detection:
+    name: host-libc-detection (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            expected: 'LIBC_CONSTRAINTS = glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
-          - os: ubuntu-24.04-arm
-            expected: 'LIBC_CONSTRAINTS = glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
-          - os: macos-15
-            expected: 'LIBC_CONSTRAINTS = []'
+          # Ubuntu's musl package installs the musl dynamic loader, which is
+          # all the detection logic looks at, so glibc and musl detection can
+          # be smoke tested on the same runner.
+          - name: ubuntu-glibc-and-musl
+            os: ubuntu-24.04
+            setup: sudo apt-get update && sudo apt-get install -y musl
+            expected: glibc_version_constraints("2.39") + musl_version_constraints("1.2")
+          - name: ubuntu-glibc-only
+            os: ubuntu-24.04
+            setup: sudo apt-get remove -y musl
+            expected: glibc_version_constraints("2.39")
+          - name: ubuntu-arm-glibc-and-musl
+            os: ubuntu-24.04-arm
+            setup: sudo apt-get update && sudo apt-get install -y musl
+            expected: glibc_version_constraints("2.39") + musl_version_constraints("1.2")
+          # Bazel is only packaged for musl in Alpine's edge/testing
+          # repository, so this configuration can't run on a fully pinned
+          # image. The expected output is stable regardless since every musl
+          # 1.2.x version clips to "1.2".
+          - name: alpine-musl-only
+            os: ubuntu-24.04
+            container: alpine:edge
+            setup: apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing bazel8 curl git
+            expected: musl_version_constraints("1.2")
+          - name: macos-no-libc
+            os: macos-15
+            expected: "[]"
 
     steps:
+      - name: Set up host
+        if: matrix.setup
+        shell: sh
+        run: ${{ matrix.setup }}
+
       - uses: actions/checkout@v5
 
       - name: Configure Bazel version
+        if: ${{ !matrix.container }}
         run: echo "9.*" > .bazelversion
 
-      # Ubuntu's musl package installs the musl dynamic loader, which is all
-      # the detection logic looks at, so glibc and musl detection can be smoke
-      # tested on the same runner.
-      - name: Install musl
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y musl
+      - name: Install buildozer
+        shell: bash
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64) suffix=linux-amd64 ;;
+            Linux-aarch64) suffix=linux-arm64 ;;
+            Darwin-arm64) suffix=darwin-arm64 ;;
+          esac
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/buildozer" "https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildozer-$suffix"
+          chmod +x "$HOME/.local/bin/buildozer"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Check detected host libc constraints
         shell: bash
         run: |
           bazel build --config=ci //host:host
-          constraints_bzl="$(bazel query --output=location @libc_constraints//:constraints.bzl | cut -d: -f1)"
-          cat "$constraints_bzl"
-          grep -Fx '${{ matrix.expected }}' "$constraints_bzl"
+          mkdir smoke_test
+          {
+            echo 'load("//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")'
+            echo 'load("//os/linux/libc/musl:musl.bzl", "musl_version_constraints")'
+            echo 'platform(name = "want", constraint_values = ${{ matrix.expected }})'
+          } > smoke_test/BUILD.bazel
+          actual="$(bazel query --output=build //host:host | buildozer -stdout 'print constraint_values' -:host)"
+          want="$(bazel query --output=build //smoke_test:want | buildozer -stdout 'print constraint_values' -:want)"
+          echo "actual: $actual"
+          echo "want:   $want"
+          test "$actual" = "$want"
