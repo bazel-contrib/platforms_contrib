@@ -3,3 +3,6 @@ module(name = "platforms_contrib")
 bazel_dep(name = "bazel_features", version = "1.48.1")
 bazel_dep(name = "package_metadata", version = "0.0.7")
 bazel_dep(name = "platforms", version = "1.0.0")
+
+host_detection = use_extension("//private:host_detection.bzl", "host_detection")
+use_repo(host_detection, "libc_constraints")

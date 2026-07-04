@@ -1,0 +1,8 @@
+load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
+
+platform(
+    name = "host",
+    constraint_values = LIBC_CONSTRAINTS,
+    parents = ["@platforms//host"],
+    visibility = ["//visibility:public"],
+)

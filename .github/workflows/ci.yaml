@@ -48,3 +48,38 @@ jobs:
           else
             bazel test --config=ci //...
           fi
+
+  host-libc-detection:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            expected: 'LIBC_CONSTRAINTS = glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
+          - os: ubuntu-24.04-arm
+            expected: 'LIBC_CONSTRAINTS = glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
+          - os: macos-15
+            expected: 'LIBC_CONSTRAINTS = []'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.*" > .bazelversion
+
+      # Ubuntu's musl package installs the musl dynamic loader, which is all
+      # the detection logic looks at, so glibc and musl detection can be smoke
+      # tested on the same runner.
+      - name: Install musl
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl
+
+      - name: Check detected host libc constraints
+        shell: bash
+        run: |
+          bazel build --config=ci //host:host
+          constraints_bzl="$(bazel query --output=location @libc_constraints//:constraints.bzl | cut -d: -f1)"
+          cat "$constraints_bzl"
+          grep -Fx '${{ matrix.expected }}' "$constraints_bzl"
