@@ -72,6 +72,15 @@ jobs:
             setup: apt-get update && apt-get install -y ca-certificates curl git musl
             install_bazelisk: true
             expected: glibc_version_constraints("2.35") + musl_version_constraints("1.2")
+          # glibc 2.28 is the oldest version Bazel's release binaries run on,
+          # so Rocky Linux 8 (supported until 2029) is the oldest libc a smoke
+          # test can cover.
+          - name: rockylinux-8-glibc-only
+            os: ubuntu-24.04
+            container: rockylinux:8
+            setup: dnf install -y curl git
+            install_bazelisk: true
+            expected: glibc_version_constraints("2.28")
           # Bazel is only packaged for musl in Alpine's edge/testing
           # repository, so this configuration can't run on a fully pinned
           # image. The expected output is stable regardless since every musl
