@@ -37,17 +37,10 @@ jobs:
         working-directory: ${{ matrix.folder }}
         run: echo "${{ matrix.bazelversion }}" > .bazelversion
 
-      # The root module has no test targets, so only build it; the examples
-      # module contains the tests that exercise the rules end-to-end.
       - name: bazel test //...
         working-directory: ${{ matrix.folder }}
         shell: bash
-        run: |
-          if [ "${{ matrix.folder }}" = "." ]; then
-            bazel build --config=ci //...
-          else
-            bazel test --config=ci //...
-          fi
+        run: bazel test --config=ci //...
 
   host-libc-detection:
     runs-on: ${{ matrix.os }}

@@ -144,3 +144,8 @@ def _libc_constraints_impl(rctx):
 libc_constraints = repository_rule(
     implementation = _libc_constraints_impl,
 )
+
+parsing_for_tests = struct(
+    extract_version_key = _extract_version_key,
+    clamp_to_supported = _clamp_to_supported,
+)
