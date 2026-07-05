@@ -92,7 +92,9 @@ jobs:
           - name: rockylinux-8-glibc-only
             os: ubuntu-24.04
             container: rockylinux:8
-            setup: dnf install -y curl git
+            # Pin dnf to the primary CDN as the default mirrorlist sometimes
+            # hands out unreachable mirrors.
+            setup: sed -i 's/^mirrorlist=/#mirrorlist=/;s/^#baseurl=/baseurl=/' /etc/yum.repos.d/Rocky-*.repo && dnf install -y curl git
             install_bazelisk: true
             expected: glibc_version_constraints("2.28")
           # Bazel is only packaged for musl in Alpine's edge/testing
