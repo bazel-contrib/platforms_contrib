@@ -68,19 +68,6 @@ def _clamp_to_supported(version_key, sorted_supported_versions):
             return supported
     return sorted_supported_versions[0]
 
-def _extract_listed_path(text, marker):
-    start = text.find(marker)
-    if start == -1:
-        return None
-    start += len(marker)
-    end = text.find(" (", start)
-    if end == -1:
-        return None
-    path = text[start:end]
-    if not path.startswith("/"):
-        return None
-    return path
-
 def _find_ld(rctx, ld_paths):
     for constraint in _HOST_CONSTRAINTS:
         for path in ld_paths.get(constraint, []):
@@ -98,28 +85,14 @@ def _detect_glibc_version(rctx):
     if not ld:
         return None
 
-    # Since glibc 2.33 (or in distro builds that backported the ld.so CLI, such as RHEL 8's), ld.so
-    # embeds its --version banner, which contains "release version 2.XY." as a compile-time string
-    # literal.
+    # ld.so embeds its --version banner, which contains "release version 2.XY." as a compile-time
+    # string literal, since glibc 2.33 as well as in distro builds that backported the ld.so CLI
+    # (e.g. RHEL 8's glibc 2.28). Pristine older loaders (e.g. Debian 11's glibc 2.31) don't
+    # contain the banner, so no glibc constraints are detected on such hosts.
     version_key = _extract_version_key(rctx.read(ld, watch = "yes"), "release version ")
-    if not version_key:
-        version_key = _glibc_version_key_from_libc(rctx, ld)
     if not version_key:
         return None
     return _clamp_to_supported(version_key, GLIBC_VERSIONS)
-
-def _glibc_version_key_from_libc(rctx, ld):
-    # Older loaders don't embed a version, but libc.so.6 has always carried the same banner. Its
-    # path varies by distro (multiarch vs. lib64 layouts), so ask the loader to resolve it for a
-    # known dynamically linked executable: "ld.so --list <prog>" prints a "libc.so.6 => <path>"
-    # line and predates the loader's --version support by decades.
-    sh = rctx.which("sh")
-    if not sh:
-        return None
-    libc_path = _extract_listed_path(rctx.execute([ld, "--list", sh]).stdout, "libc.so.6 => ")
-    if not libc_path:
-        return None
-    return _extract_version_key(rctx.read(libc_path, watch = "yes"), "release version ")
 
 def _detect_musl_version(rctx):
     ld = _find_ld(rctx, _MUSL_LD_PATHS)
@@ -182,6 +155,5 @@ libc_constraints = repository_rule(
 
 parsing_for_tests = struct(
     extract_version_key = _extract_version_key,
-    extract_listed_path = _extract_listed_path,
     clamp_to_supported = _clamp_to_supported,
 )
