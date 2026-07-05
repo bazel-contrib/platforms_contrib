@@ -4,36 +4,30 @@ load("//os/linux/libc/musl:musl_private.bzl", "MUSL_VERSIONS")
 
 visibility("private")
 
-# These Label calls require platforms_contrib to use the "platforms" repo name
-# for the "platforms" module since HOST_CONSTRAINTS consists of raw label
-# strings.
+# These Label calls rely on platforms_contrib using the "platforms" repo name for the "platforms"
+# module as HOST_CONSTRAINTS consists of raw label strings.
 _HOST_CONSTRAINTS = [Label(constraint) for constraint in HOST_CONSTRAINTS]
 
-# The ABI-mandated PT_INTERP paths of glibc's dynamic loader, keyed by the
-# CPU constraints @platforms//host can emit. Distros keep these paths working
-# (via symlinks if necessary) even with multiarch or merged-usr layouts as
-# every dynamically linked executable references them.
+# Maps a CPU constraint value potentially emitted by @platforms//host to the corresponding standard
+# PT_INTERP path of glib'c dynamic loader.
 _GLIBC_LD_PATHS = {
     Label("@platforms//cpu:x86_64"): ["/lib64/ld-linux-x86-64.so.2"],
     Label("@platforms//cpu:x86_32"): ["/lib/ld-linux.so.2"],
     Label("@platforms//cpu:aarch64"): ["/lib/ld-linux-aarch64.so.1"],
-    # ld-linux-armhf.so.3 is the hard-float loader, ld-linux.so.3 the
-    # soft-float one.
+    # ld-linux-armhf.so.3 is the hard-float loader, ld-linux.so.3 the soft-float one.
     Label("@platforms//cpu:arm"): ["/lib/ld-linux-armhf.so.3", "/lib/ld-linux.so.3"],
     Label("@platforms//cpu:ppc64le"): ["/lib64/ld64.so.2"],
-    # @platforms//host maps both 32-bit powerpc and big-endian ppc64 (ELFv1)
-    # hosts to the "ppc" constraint.
+    # @platforms//host maps both 32-bit powerpc and big-endian ppc64 (ELFv1) hosts to the "ppc"
+    # constraint.
     Label("@platforms//cpu:ppc"): ["/lib64/ld64.so.1", "/lib/ld.so.1"],
     Label("@platforms//cpu:s390x"): ["/lib/ld64.so.1"],
-    # lp64d is the double-float RISC-V ABI used by all glibc distros.
+    # lp64d is the double-float RISC-V ABI that's the default for most glibc distros.
     Label("@platforms//cpu:riscv64"): ["/lib/ld-linux-riscv64-lp64d.so.1"],
-    # The n64 loader path is the same for both mips64 endiannesses.
-    Label("@platforms//cpu:mips64"): ["/lib64/ld.so.1"],
+    Label("@platforms//cpu:mips64"): ["/lib64/ld.so.1", "/lib64/ld-linux-mipsn8.so.1"],
 }
 
-# musl's dynamic loader is always installed as /lib/ld-musl-$ARCH.so.1, where
-# $ARCH is the musl architecture name, which encodes endianness and float ABI
-# where relevant.
+# musl's dynamic loader is always installed as /lib/ld-musl-$ARCH.so.1, where $ARCH is the musl
+# architecture name, which encodes endianness and float ABI where relevant.
 _MUSL_LD_PATHS = {
     Label("@platforms//cpu:x86_64"): ["/lib/ld-musl-x86_64.so.1"],
     Label("@platforms//cpu:x86_32"): ["/lib/ld-musl-i386.so.1"],
@@ -56,6 +50,8 @@ def _extract_version_key(text, marker):
         return None
     start += len(marker)
     end = start
+    # Put an arbitary but reasonable limit on the length of a version string to avoid creating huge
+    # integers from garbage data below.
     for i in range(start, min(start + 16, len(text))):
         if text[i] not in "0123456789.":
             break
@@ -75,6 +71,8 @@ def _find_ld(rctx, ld_paths):
     for constraint in _HOST_CONSTRAINTS:
         for path in ld_paths.get(constraint, []):
             ld = rctx.path(path)
+            # This watch is crucial for incremental correctness: If one of the files changes
+            # contents, appears, or disappears, the repo rule must rerun to pick up the new version.
             rctx.watch(ld)
             if ld.exists:
                 return ld
@@ -85,9 +83,8 @@ def _detect_glibc_version(rctx):
     if not ld:
         return None
 
-    # glibc's ld.so embeds its --version banner, which always contains
-    # "stable release version 2.XY." as a compile-time string literal, even in
-    # distro builds that customize the rest of the banner.
+    # glibc's ld.so embeds its --version banner, which always contains "release version 2.XY." as a
+    # compile-time string literal.
     version_key = _extract_version_key(rctx.read(ld, watch = "yes"), "release version ")
     if not version_key:
         return None
@@ -140,6 +137,13 @@ def _libc_constraints_impl(rctx):
     ]) + ("\n" if load_statements else "") + "LIBC_CONSTRAINTS = {}\n".format(
         " + ".join(constraint_exprs) if constraint_exprs else "[]",
     ))
+
+    if hasattr(rctx, "repo_metadata"):
+        return rctx.repo_metadata(
+            reproducible = True,
+        )
+    else:
+        return None
 
 libc_constraints = repository_rule(
     implementation = _libc_constraints_impl,
