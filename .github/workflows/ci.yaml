@@ -127,16 +127,42 @@ jobs:
 
       - name: Check detected host libc constraints
         shell: bash
+        run: .github/workflows/assert_host_libc_constraints.sh '${{ matrix.expected }}'
+
+  host-libc-invalidation:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.*" > .bazelversion
+
+      - name: Install buildozer
+        shell: bash
         run: |
-          bazel build --config=ci //host:host
-          mkdir smoke_test
-          {
-            echo 'load("//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")'
-            echo 'load("//os/linux/libc/musl:musl.bzl", "musl_version_constraints")'
-            echo 'platform(name = "want", constraint_values = ${{ matrix.expected }})'
-          } > smoke_test/BUILD.bazel
-          actual="$(bazel query --output=build //host:host | buildozer -stdout 'print constraint_values' -:host)"
-          want="$(bazel query --output=build //smoke_test:want | buildozer -stdout 'print constraint_values' -:want)"
-          echo "actual: $actual"
-          echo "want:   $want"
-          test "$actual" = "$want"
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/buildozer" "https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildozer-linux-amd64"
+          chmod +x "$HOME/.local/bin/buildozer"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # The three detections below run against the same Bazel server, so the
+      # constraints can only change if the watches registered by the repo rule
+      # correctly invalidate it when the musl loader appears or disappears.
+      - name: Detect with musl absent
+        shell: bash
+        run: |
+          sudo apt-get remove -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39")'
+
+      - name: Detect after musl is installed
+        shell: bash
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
+
+      - name: Detect after musl is uninstalled
+        shell: bash
+        run: |
+          sudo apt-get remove -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39")'
