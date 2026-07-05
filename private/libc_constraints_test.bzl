@@ -75,6 +75,25 @@ def _musl_version_clipping_test(env):
         MUSL_VERSIONS,
     )).equals(MUSL_VERSIONS[-1])
 
+def _ld_so_list_output_test(env):
+    env.expect.that_str(parsing_for_tests.extract_listed_path(
+        "\tlinux-vdso.so.1 (0x00007ffc18d5e000)\n" +
+        "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f0d5b3b0000)\n" +
+        "\t/lib64/ld-linux-x86-64.so.2 (0x00007f0d5b5c2000)\n",
+        "libc.so.6 => ",
+    )).equals("/lib/x86_64-linux-gnu/libc.so.6")
+
+def _unparseable_ld_so_list_output_test(env):
+    for text in [
+        "\tlinux-vdso.so.1 (0x00007ffc18d5e000)\n",
+        "\tlibc.so.6 => not found\n",
+        "\tlibc.so.6 => not found\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f0d5b5c2000)\n",
+        "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6",
+    ]:
+        env.expect.that_bool(
+            parsing_for_tests.extract_listed_path(text, "libc.so.6 => ") == None,
+        ).equals(True)
+
 def _unparseable_version_test(env):
     for text, marker in [
         ("no banner here", _GLIBC_MARKER),
@@ -95,6 +114,8 @@ def libc_constraints_test_suite(name):
             _glibc_version_clipping_test,
             _musl_usage_banner_test,
             _musl_version_clipping_test,
+            _ld_so_list_output_test,
+            _unparseable_ld_so_list_output_test,
             _unparseable_version_test,
         ],
     )

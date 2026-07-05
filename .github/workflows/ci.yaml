@@ -72,9 +72,19 @@ jobs:
             setup: apt-get update && apt-get install -y ca-certificates curl git musl
             install_bazelisk: true
             expected: glibc_version_constraints("2.35") + musl_version_constraints("1.2")
+          # Debian 11's pristine glibc 2.31 ld.so predates the embedded
+          # --version banner (added in glibc 2.33), so this configuration
+          # covers the fallback that reads the banner from libc.so.6 instead.
+          - name: debian-11-glibc-and-musl
+            os: ubuntu-24.04
+            container: debian:11
+            setup: apt-get update && apt-get install -y ca-certificates curl git musl
+            install_bazelisk: true
+            expected: glibc_version_constraints("2.31") + musl_version_constraints("1.2")
           # glibc 2.28 is the oldest version Bazel's release binaries run on,
           # so Rocky Linux 8 (supported until 2029) is the oldest libc a smoke
-          # test can cover.
+          # test can cover. Note that its ld.so only embeds a version banner
+          # because RHEL 8 backported the glibc 2.33 ld.so CLI.
           - name: rockylinux-8-glibc-only
             os: ubuntu-24.04
             container: rockylinux:8
