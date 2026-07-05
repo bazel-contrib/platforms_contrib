@@ -86,12 +86,14 @@ def _detect_glibc_version(rctx):
         return None
 
     # ld.so embeds its --version banner, which contains "release version 2.XY." as a compile-time
-    # string literal, since glibc 2.33 as well as in distro builds that backported the ld.so CLI
-    # (e.g. RHEL 8's glibc 2.28). Pristine older loaders (e.g. Debian 11's glibc 2.31) don't
-    # contain the banner, so no glibc constraints are detected on such hosts.
+    # string literal, since glibc 2.33 (commit 542923d949e8, "elf: Implement ld.so --version") as
+    # well as in distro builds that backported the ld.so CLI (e.g. RHEL 8's glibc 2.28). If the
+    # loader exists but doesn't contain the banner (e.g. Debian 11's pristine glibc 2.31), fall
+    # back to the lowest supported version: any glibc recent enough to run Bazel is at least that
+    # new.
     version_key = _extract_version_key(rctx.read(ld, watch = "yes"), "release version ")
     if not version_key:
-        return None
+        return GLIBC_VERSIONS[0]
     return _clamp_to_supported(version_key, GLIBC_VERSIONS)
 
 def _detect_musl_version(rctx):
