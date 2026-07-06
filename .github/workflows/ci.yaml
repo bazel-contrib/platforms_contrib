@@ -58,9 +58,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu's musl package installs the musl dynamic loader, which is
-          # all the detection logic looks at, so glibc and musl detection can
-          # be smoke tested on the same runner.
           - name: ubuntu-glibc-and-musl
             os: ubuntu-24.04
             setup: sudo apt-get update && sudo apt-get install -y musl
@@ -82,7 +79,7 @@ jobs:
           # Ubuntu 20.04's pristine glibc 2.31 ld.so predates the embedded
           # --version banner (added in glibc 2.33), so its glibc is expected
           # to be detected as the fallback version 2.17, the minimum required
-          # by Bazel 6's release binaries. Its musl 1.1.24 is old enough to
+          # by Bazel 7's release binaries. Its musl 1.1.24 is old enough to
           # cover a musl version other than 1.2.
           - name: ubuntu-20.04-bannerless-glibc-and-musl
             os: ubuntu-24.04
@@ -169,9 +166,6 @@ jobs:
           chmod +x "$HOME/.local/bin/buildozer"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      # The three detections below run against the same Bazel server, so the
-      # constraints can only change if the watches registered by the repo rule
-      # correctly invalidate it when the musl loader appears or disappears.
       - name: Detect with musl absent
         shell: bash
         run: |
