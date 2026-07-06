@@ -9,7 +9,7 @@ visibility("private")
 _HOST_CONSTRAINTS = [Label(constraint) for constraint in HOST_CONSTRAINTS]
 
 # Maps a CPU constraint value potentially emitted by @platforms//host to the corresponding standard
-# PT_INTERP path of glib'c dynamic loader.
+# PT_INTERP path of glibc's dynamic loader.
 _GLIBC_LD_PATHS = {
     Label("@platforms//cpu:x86_64"): ["/lib64/ld-linux-x86-64.so.2"],
     Label("@platforms//cpu:x86_32"): ["/lib/ld-linux.so.2"],
@@ -51,8 +51,8 @@ def _extract_version_key(text, marker):
     start += len(marker)
     end = start
 
-    # Put an arbitary but reasonable limit on the length of a version string to avoid creating huge
-    # integers from garbage data below.
+    # Put an arbitrary but reasonable limit on the length of a version string to avoid creating
+    # huge integers from garbage data below.
     for i in range(start, min(start + 16, len(text))):
         if text[i] not in "0123456789.":
             break
@@ -106,10 +106,11 @@ def _detect_musl_version(rctx):
     if not ld:
         return None
 
-    # Unlike glibc's ld.so, musl's loader only embeds a "Version %s" format
-    # string with the version filled in at runtime, so it can't be found by
-    # scanning the binary. When run without arguments, the loader prints a
-    # usage message including a "Version 1.X.Y" line to stderr.
+    # Unlike glibc's ld.so, musl's loader only embeds a "Version %s" format string with the version
+    # filled in at runtime, so it can't be found by scanning the binary. When run without arguments,
+    # the loader prints a usage message including a "Version 1.X.Y" line to stderr. This invalidates
+    # correctly since musl is a single standalone dynamic library that doubles as the libc, so there
+    # is no separate file to watch.
     version_key = _extract_version_key(rctx.execute([ld]).stderr, "Version ")
     if not version_key:
         return None

@@ -21,8 +21,8 @@ def _glibc_release_banner_test(env):
         GLIBC_VERSIONS,
     )).equals("2.35")
 
-    # Distro builds customize the banner around the version, e.g. Ubuntu's
-    # "ld.so (Ubuntu GLIBC 2.39-0ubuntu8.4) stable release version 2.39.".
+    # Distro builds customize the banner around the version, e.g. Ubuntu's "ld.so (Ubuntu GLIBC
+    # 2.39-0ubuntu8.4) stable release version 2.39.".
     env.expect.that_str(_detected_version(
         "garbage\000ld.so (Ubuntu GLIBC 2.39-0ubuntu8.4) stable release version 2.39.\nmore\000",
         _GLIBC_MARKER,
