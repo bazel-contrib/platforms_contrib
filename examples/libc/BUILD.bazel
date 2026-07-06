@@ -113,6 +113,9 @@ modern_genrule(
     exec_compatible_with = [
         "@platforms_contrib//os/linux/libc/musl:at_least_1.1_available",
     ],
+    # Bazel 7 doesn't support toolchain_type targets in a genrule's
+    # toolchains attribute.
+    tags = ["requires-bazel-8"],
     toolchains = [
         "//rules/foo:toolchain_type",
         "@platforms_contrib//os/linux/libc/glibc:target_version",
@@ -124,4 +127,5 @@ diff_test(
     name = "use_my_tool_and_toolchain_test",
     file1 = ":use_my_tool_and_toolchain",
     file2 = "expected_output_tools.txt",
+    tags = ["requires-bazel-8"],
 )
