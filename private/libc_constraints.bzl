@@ -80,11 +80,10 @@ def _find_ld(rctx, ld_paths):
                 return ld
     return None
 
-# Loaders that predate the version banner are assumed to provide at least glibc 2.28 as shipped
-# by RHEL 8. Even older versions can technically run Bazel's release binaries, which only
-# reference versioned glibc symbols up to GLIBC_2.17 (Bazel 6 and 7) or GLIBC_2.25 (Bazel 8+),
-# but all distros that ship them are past their end of life.
-_FALLBACK_GLIBC_VERSION_KEY = (2, 28)
+# Loaders that predate the version banner are assumed to provide at least glibc 2.17, the
+# baseline of Bazel 7's release binaries: they reference versioned glibc symbols up to GLIBC_2.17
+# (Bazel 8+ raised this to GLIBC_2.25), so any host running Bazel has at least this version.
+_FALLBACK_GLIBC_VERSION_KEY = (2, 17)
 
 def _detect_glibc_version(rctx):
     ld = _find_ld(rctx, _GLIBC_LD_PATHS)
