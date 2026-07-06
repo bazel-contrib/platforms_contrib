@@ -62,11 +62,11 @@ def _extract_version_key(text, marker):
         return None
     return (int(parts[0]), int(parts[1]))
 
-def _clamp_to_supported(version_key, sorted_supported_versions):
+def _floor_to_supported(version_key, sorted_supported_versions):
     for supported in reversed(sorted_supported_versions):
         if _version_key(supported) <= version_key:
             return supported
-    return sorted_supported_versions[0]
+    return None
 
 def _find_ld(rctx, ld_paths):
     for constraint in _HOST_CONSTRAINTS:
@@ -99,7 +99,7 @@ def _detect_glibc_version(rctx):
     version_key = _extract_version_key(rctx.read(ld, watch = "yes"), "release version ")
     if not version_key:
         version_key = _FALLBACK_GLIBC_VERSION_KEY
-    return _clamp_to_supported(version_key, GLIBC_VERSIONS)
+    return _floor_to_supported(version_key, GLIBC_VERSIONS)
 
 def _detect_musl_version(rctx):
     ld = _find_ld(rctx, _MUSL_LD_PATHS)
@@ -113,7 +113,7 @@ def _detect_musl_version(rctx):
     version_key = _extract_version_key(rctx.execute([ld]).stderr, "Version ")
     if not version_key:
         return None
-    return _clamp_to_supported(version_key, MUSL_VERSIONS)
+    return _floor_to_supported(version_key, MUSL_VERSIONS)
 
 def _libc_constraints_impl(rctx):
     load_statements = []
@@ -142,10 +142,9 @@ def _libc_constraints_impl(rctx):
             )
 
     rctx.file("BUILD.bazel", 'exports_files(["constraints.bzl"])\n')
-    rctx.file("constraints.bzl", "".join([
-        statement + "\n"
-        for statement in load_statements
-    ]) + ("\n" if load_statements else "") + "LIBC_CONSTRAINTS = {}\n".format(
+    rctx.file("constraints.bzl", "\n".join([statement for statement in load_statements]) + (
+        "\n\n" if load_statements else ""
+    ) + "LIBC_CONSTRAINTS = {}\n".format(
         " + ".join(constraint_exprs) if constraint_exprs else "[]",
     ))
 
@@ -162,5 +161,5 @@ libc_constraints = repository_rule(
 
 parsing_for_tests = struct(
     extract_version_key = _extract_version_key,
-    clamp_to_supported = _clamp_to_supported,
+    floor_to_supported = _floor_to_supported,
 )

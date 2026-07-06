@@ -12,7 +12,7 @@ def _detected_version(text, marker, supported_versions):
     version_key = parsing_for_tests.extract_version_key(text, marker)
     if version_key == None:
         return None
-    return parsing_for_tests.clamp_to_supported(version_key, supported_versions)
+    return parsing_for_tests.floor_to_supported(version_key, supported_versions)
 
 def _glibc_release_banner_test(env):
     env.expect.that_str(_detected_version(
@@ -43,11 +43,15 @@ def _glibc_version_clipping_test(env):
         _GLIBC_MARKER,
         GLIBC_VERSIONS,
     )).equals(GLIBC_VERSIONS[-1])
-    env.expect.that_str(_detected_version(
-        "stable release version 2.10.\n",
-        _GLIBC_MARKER,
-        GLIBC_VERSIONS,
-    )).equals(GLIBC_VERSIONS[0])
+
+def _glibc_version_below_supported_floor_test(env):
+    env.expect.that_bool(
+        _detected_version(
+            "stable release version 2.10.\n",
+            _GLIBC_MARKER,
+            GLIBC_VERSIONS,
+        ) == None,
+    ).equals(True)
 
 def _musl_usage_banner_test(env):
     env.expect.that_str(_detected_version(
@@ -75,6 +79,15 @@ def _musl_version_clipping_test(env):
         MUSL_VERSIONS,
     )).equals(MUSL_VERSIONS[-1])
 
+def _musl_version_below_supported_floor_test(env):
+    env.expect.that_bool(
+        _detected_version(
+            "musl libc (x86_64)\nVersion 0.9.9\n",
+            _MUSL_MARKER,
+            MUSL_VERSIONS,
+        ) == None,
+    ).equals(True)
+
 def _unparseable_version_test(env):
     for text, marker in [
         ("no banner here", _GLIBC_MARKER),
@@ -93,8 +106,10 @@ def libc_constraints_test_suite(name):
             _glibc_release_banner_test,
             _glibc_snapshot_version_test,
             _glibc_version_clipping_test,
+            _glibc_version_below_supported_floor_test,
             _musl_usage_banner_test,
             _musl_version_clipping_test,
+            _musl_version_below_supported_floor_test,
             _unparseable_version_test,
         ],
     )
