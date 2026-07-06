@@ -76,19 +76,18 @@ jobs:
             install_bazelisk: true
             expected: glibc_version_constraints("2.35") + musl_version_constraints("1.2")
           # Ubuntu 20.04's pristine glibc 2.31 ld.so predates the embedded --version banner (added
-          # in glibc 2.33), so its glibc is expected to be detected as the fallback version 2.17,
-          # the minimum required by Bazel 6's release binaries. Its musl 1.1.24 is old enough to
-          # cover a musl version other than 1.2.
+          # in glibc 2.33), so its glibc is expected to be detected as the fallback version 2.28.
+          # Its musl 1.1.24 is old enough to cover a musl version other than 1.2.
           - name: ubuntu-20.04-bannerless-glibc-and-musl
             os: ubuntu-24.04
             container: ubuntu:20.04
             setup: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git musl
             install_bazelisk: true
-            expected: glibc_version_constraints("2.17") + musl_version_constraints("1.1")
-          # glibc 2.28 is the oldest version Bazel's release binaries run on, so Rocky Linux 8
-          # (supported until 2029) is the oldest libc a smoke test can cover. Its glibc predates
-          # the version banner in ld.so (glibc 2.33), but is detected exactly rather than as the
-          # 2.17 fallback because RHEL 8 backported the glibc 2.33 ld.so CLI including the banner.
+            expected: glibc_version_constraints("2.28") + musl_version_constraints("1.1")
+          # Rocky Linux 8 (supported until 2029) ships glibc 2.28, the oldest libc covered by
+          # these smoke tests. It is detected exactly since RHEL 8 backported the glibc 2.33 ld.so
+          # CLI including the version banner, though its version coincides with the bannerless
+          # fallback, so detection would yield the same result either way.
           - name: rockylinux-8-glibc-only
             os: ubuntu-24.04
             container: rockylinux:8
