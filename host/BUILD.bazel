@@ -1,8 +1,9 @@
+load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS")
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
 
 platform(
     name = "host",
-    constraint_values = LIBC_CONSTRAINTS,
+    constraint_values = CPU_FEATURE_CONSTRAINTS + LIBC_CONSTRAINTS,
     parents = ["@platforms//host"],
     visibility = ["//visibility:public"],
 )

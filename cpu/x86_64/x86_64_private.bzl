@@ -1,4 +1,4 @@
-visibility(["//cpu/x86_64/..."])
+visibility(["//cpu/x86_64/...", "//private"])
 
 X86_64_FEATURES = {
     "v1": ["cmov", "cx8", "fpu", "fxsr", "mmx", "osfxsr", "sce", "sse", "sse2"],

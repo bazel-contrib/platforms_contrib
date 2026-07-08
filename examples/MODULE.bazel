@@ -5,7 +5,7 @@ local_path_override(
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "with_cfg.bzl", version = "0.14.6")
 
@@ -17,7 +17,12 @@ register_toolchains(
     "//x86_64:baseline_foo_toolchain",
 )
 
+# The host platform has to come first: the example platforms claim os:linux even on non-Linux
+# machines, and an unconstrained toolchain (e.g. the autodetected sh toolchain) would otherwise
+# make them the default execution platform there, breaking tool builds such as the Windows test
+# launcher.
 register_execution_platforms(
+    "@platforms//host",
     "//libc:modern_linux",
     "//libc:legacy_linux",
 )
