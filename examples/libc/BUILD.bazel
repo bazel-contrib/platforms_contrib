@@ -4,11 +4,16 @@ load("@platforms_contrib//os/linux/libc/musl:musl.bzl", "musl_version_constraint
 load("//rules/foo:defs.bzl", "foo_binary", "foo_toolchain")
 load(":cfg_variants.bzl", "modern_genrule")
 
+# The platforms inherit the host platform's constraints (in particular the CPU) so that toolchain
+# resolution for the host's C++ toolchain succeeds when they are used as execution platforms.
+# Bazel 7's sh_binary requires this as it has an implicit dependency on a C++ launcher via the sh
+# toolchain.
 platform(
     name = "modern_linux",
     constraint_values = [
         "@platforms//os:linux",
     ] + glibc_version_constraints("2.41"),
+    parents = ["@platforms//host"],
 )
 
 platform(
@@ -16,6 +21,7 @@ platform(
     constraint_values = [
         "@platforms//os:linux",
     ] + glibc_version_constraints("2.30") + musl_version_constraints("1.2"),
+    parents = ["@platforms//host"],
 )
 
 foo_toolchain(
@@ -113,6 +119,8 @@ modern_genrule(
     exec_compatible_with = [
         "@platforms_contrib//os/linux/libc/musl:at_least_1.1_available",
     ],
+    # Bazel 7 doesn't support toolchain_type targets in a genrule's toolchains attribute.
+    tags = ["requires-bazel-8"],
     toolchains = [
         "//rules/foo:toolchain_type",
         "@platforms_contrib//os/linux/libc/glibc:target_version",
@@ -124,4 +132,5 @@ diff_test(
     name = "use_my_tool_and_toolchain_test",
     file1 = ":use_my_tool_and_toolchain",
     file2 = "expected_output_tools.txt",
+    tags = ["requires-bazel-8"],
 )

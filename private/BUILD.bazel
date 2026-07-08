@@ -1,0 +1,3 @@
+load(":libc_constraints_test.bzl", "libc_constraints_test_suite")
+
+libc_constraints_test_suite(name = "libc_constraints_tests")

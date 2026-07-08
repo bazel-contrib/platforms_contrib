@@ -24,11 +24,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        bazelversion: [8.*, 9.*, last_green]
+        bazelversion: [7.*, 8.*, 9.*, last_green]
         folder: [examples]
         include:
+          - bazelversion: 7.*
+            folder: examples
+            test_flags: --build_tag_filters=-requires-bazel-8 --test_tag_filters=-requires-bazel-8
           - bazelversion: 9.*
             folder: "."
+            # Wildcard patterns don't expand to platform() targets, so the host platform has to
+            # be listed explicitly to be built.
+            extra_targets: //host:host
 
     steps:
       - uses: actions/checkout@v5
@@ -37,14 +43,137 @@ jobs:
         working-directory: ${{ matrix.folder }}
         run: echo "${{ matrix.bazelversion }}" > .bazelversion
 
-      # The root module has no test targets, so only build it; the examples
-      # module contains the tests that exercise the rules end-to-end.
       - name: bazel test //...
         working-directory: ${{ matrix.folder }}
         shell: bash
+        run: bazel test --config=ci ${{ matrix.test_flags }} //... ${{ matrix.extra_targets }}
+
+  host-libc-detection:
+    name: host-libc-detection (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-glibc-and-musl
+            os: ubuntu-24.04
+            setup: sudo apt-get update && sudo apt-get install -y musl
+            expected: glibc_version_constraints("2.39") + musl_version_constraints("1.2")
+          - name: ubuntu-glibc-only
+            os: ubuntu-24.04
+            setup: sudo apt-get remove -y musl
+            expected: glibc_version_constraints("2.39")
+          - name: ubuntu-arm-glibc-and-musl
+            os: ubuntu-24.04-arm
+            setup: sudo apt-get update && sudo apt-get install -y musl
+            expected: glibc_version_constraints("2.39") + musl_version_constraints("1.2")
+          - name: ubuntu-22.04-glibc-and-musl
+            os: ubuntu-24.04
+            container: ubuntu:22.04
+            setup: apt-get update && apt-get install -y ca-certificates curl git musl
+            install_bazelisk: true
+            expected: glibc_version_constraints("2.35") + musl_version_constraints("1.2")
+          # Ubuntu 20.04's pristine glibc 2.31 ld.so predates the embedded --version banner (added
+          # in glibc 2.33), so its glibc is expected to be detected as the fallback version 2.17.
+          # Its musl 1.1.24 is old enough to cover a musl version other than 1.2.
+          - name: ubuntu-20.04-bannerless-glibc-and-musl
+            os: ubuntu-24.04
+            container: ubuntu:20.04
+            setup: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git musl
+            install_bazelisk: true
+            expected: glibc_version_constraints("2.17") + musl_version_constraints("1.1")
+          # Rocky Linux 8 (supported until 2029) ships glibc 2.28, the oldest libc covered by
+          # these smoke tests. Its glibc predates the version banner in ld.so (glibc 2.33), but is
+          # detected exactly rather than as the 2.17 fallback because RHEL 8 backported the glibc
+          # 2.33 ld.so CLI including the banner.
+          - name: rockylinux-8-glibc-only
+            os: ubuntu-24.04
+            container: rockylinux:8
+            # Pin dnf to the primary CDN as the default mirrorlist sometimes hands out
+            # unreachable mirrors.
+            setup: sed -i 's/^mirrorlist=/#mirrorlist=/;s/^#baseurl=/baseurl=/' /etc/yum.repos.d/Rocky-*.repo && dnf install -y curl git
+            install_bazelisk: true
+            expected: glibc_version_constraints("2.28")
+          # Bazel is only packaged for musl in Alpine's edge/testing repository, so this
+          # configuration can't run on a fully pinned image. The expected output is stable
+          # regardless since every musl 1.2.x version clips to "1.2".
+          - name: alpine-musl-only
+            os: ubuntu-24.04
+            container: alpine:edge
+            setup: apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing bazel8 curl git
+            expected: musl_version_constraints("1.2")
+          - name: macos-no-libc
+            os: macos-15
+            expected: "[]"
+
+    steps:
+      - name: Set up host
+        if: matrix.setup
+        shell: sh
+        run: ${{ matrix.setup }}
+
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.*" > .bazelversion
+
+      - name: Install bazelisk
+        if: matrix.install_bazelisk
+        shell: bash
         run: |
-          if [ "${{ matrix.folder }}" = "." ]; then
-            bazel build --config=ci //...
-          else
-            bazel test --config=ci //...
-          fi
+          curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.29.0/bazelisk-linux-amd64
+          chmod +x /usr/local/bin/bazel
+
+      - name: Install buildozer
+        shell: bash
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64) suffix=linux-amd64 ;;
+            Linux-aarch64) suffix=linux-arm64 ;;
+            Darwin-arm64) suffix=darwin-arm64 ;;
+          esac
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/buildozer" "https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildozer-$suffix"
+          chmod +x "$HOME/.local/bin/buildozer"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check detected host libc constraints
+        shell: bash
+        run: .github/workflows/assert_host_libc_constraints.sh '${{ matrix.expected }}'
+
+  host-libc-invalidation:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.*" > .bazelversion
+
+      - name: Install buildozer
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/buildozer" "https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildozer-linux-amd64"
+          chmod +x "$HOME/.local/bin/buildozer"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Detect with musl absent
+        shell: bash
+        run: |
+          sudo apt-get remove -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39")'
+
+      - name: Detect after musl is installed
+        shell: bash
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39") + musl_version_constraints("1.2")'
+
+      - name: Detect after musl is uninstalled
+        shell: bash
+        run: |
+          sudo apt-get remove -y musl
+          .github/workflows/assert_host_libc_constraints.sh 'glibc_version_constraints("2.39")'
