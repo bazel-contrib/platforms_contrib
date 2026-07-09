@@ -18,14 +18,6 @@ X86_64_LEVELS = X86_64_FEATURES.keys()
 # the constraint values so that features detected on the host (see //host) map to constraint
 # values directly. Capabilities not (yet) covered by cpu_features use their common lowercase name
 # with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
-#
-# Compiler options that do not correspond to a dedicated hardware capability are intentionally
-# excluded: purely codegen/tuning options (e.g. `retpoline`, `soft-float`, `vzeroupper`,
-# `evex512`), features without their own CPUID bit (e.g. `crc32`, which is part of SSE4.2), and
-# legacy features no longer supported by current hardware and toolchains (e.g. `3dnow`,
-# `avx512er`, `avx512pf`, `prefetchwt1`). The AVX10 constraints follow the revised AVX10
-# specification, which dropped the 256-/512-bit vector length split: `avx10_1` and `avx10_2`
-# always include 512-bit vectors.
 X86_64_FEATURES_WITHOUT_LEVEL = [
     "adx",
     "aes",
