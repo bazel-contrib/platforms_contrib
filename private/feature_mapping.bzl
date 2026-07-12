@@ -1,11 +1,13 @@
 """Maps the CPU feature names reported by the detect_cpu binary to constraint value names.
 
-The detect_cpu binary (see //prebuilt) reports the enum names used by the cpu_features library
-(https://github.com/google/cpu_features), which the constraint values in //cpu/x86_64/feature are
-named after. Features that cpu_features cannot report stay at their conservative `no_<feature>`
-default, except for a few that are implied by a reported feature. Conversely, if a reportable
-feature of the always-available-by-default v1 baseline is missing from the report, its
-`no_<feature>` constraint value is set explicitly.
+The detect_cpu binary (see //prebuilt) reports the availability of every enum name used by the
+cpu_features library (https://github.com/google/cpu_features), which the constraint values in
+//cpu/x86_64/feature are named after. Every reported feature with a constraint value is set
+explicitly, as `<feature>` or `no_<feature>`. Features that cpu_features cannot report stay at
+their default, except for a few that are implied by a reported feature.
+
+Every name cpu_features can report is accounted for explicitly: a reported feature that is
+neither settable, part of the v1 baseline, nor deliberately ignored fails detection.
 """
 
 load(
@@ -27,71 +29,90 @@ _X86_64_INFERRED_FEATURES = {
     "xsave": "avx",
 }
 
-# The v1 baseline features that cpu_features can report. Their constraint values are available by
-# default, so only their absence has to be mapped, to the `no_<feature>` constraint value. The
-# other v1 features (cmov, fxsr, osfxsr, sce) are missing from every report, which says nothing
-# about their availability, so they always stay at their available-by-default value.
-_X86_64_REPORTABLE_V1_FEATURES = [
-    "cx8",
-    "fpu",
-    "mmx",
-    "sse",
-    "sse2",
-]
-
-# The features whose availability a platform may need to declare explicitly: everything above the
-# x86-64-v1 baseline. Reported features not in this list are ignored, either because they are part
-# of the v1 baseline handled above or because they deliberately have no constraint value (e.g.
-# hle, smx, tsc, and the Xeon Phi-only AVX-512 extensions).
+# All features modeled as constraint values in //cpu/x86_64/feature.
 _X86_64_SETTABLE_FEATURES = [
     feature
-    for level, features in X86_64_FEATURES.items()
-    if level != "v1"
+    for features in X86_64_FEATURES.values()
     for feature in features
 ] + X86_64_FEATURES_WITHOUT_LEVEL
+
+# Features that cpu_features (as of 0.11.0) can report but that deliberately have no constraint
+# value.
+_X86_64_IGNORED_FEATURES = [
+    # Present on every x86-64 CPU in practice, but not part of the psABI v1 baseline.
+    "clfsh",
+    "tsc",
+    # CPU implementation details and system-level capabilities with no bearing on code generation.
+    "dca",
+    "lam",
+    "smx",
+    "ss",
+    "uai",
+    # A performance property (the number of 512-bit FMA units), not an ISA capability.
+    "avx512_second_fma",
+    # Discontinued Xeon Phi-only extensions, removed from LLVM.
+    "avx512_4fmaps",
+    "avx512_4vbmi2",
+    "avx512_4vnniw",
+    "avx512er",
+    "avx512pf",
+    # Deprecated TSX lock elision, disabled by Intel via microcode update.
+    "hle",
+]
+
+_X86_64_KNOWN_FEATURES = _X86_64_SETTABLE_FEATURES + _X86_64_IGNORED_FEATURES
+
+# The number of features the detect_cpu binary reports, i.e. the number of X86FeaturesEnum values
+# in cpu_features 0.11.0. Any other report size indicates a mismatch between the detector binary
+# and this mapping or a truncated report.
+_X86_64_REPORT_SIZE = 74
 
 def x86_64_feature_constraint_names(reported_features):
     """Returns the names of the constraint values in //cpu/x86_64/feature matching the host CPU.
 
     Args:
-        reported_features: the list of cpu_features enum names emitted by the detect_cpu binary.
+        reported_features: a dict from cpu_features enum name to whether the detect_cpu binary
+            reported the feature as available on the host machine.
 
     Returns:
-        A sorted list of constraint value names: `<feature>` for each detected feature that is not
-        available by default and `no_<feature>` for each v1 baseline feature that is reportable
-        but missing from the report.
+        A list of constraint value names, one per reported feature with a constraint value:
+        `<feature>` if the feature is available and `no_<feature>` if not, with the available
+        features sorted first, followed by the sorted unavailable ones.
     """
+    unknown_features = [
+        feature
+        for feature in reported_features
+        if feature not in _X86_64_KNOWN_FEATURES
+    ]
+    if unknown_features:
+        fail(
+            "The CPU feature detector reported features unknown to feature_mapping.bzl: " +
+            ", ".join(unknown_features),
+        )
+    if len(reported_features) != _X86_64_REPORT_SIZE:
+        fail("The CPU feature detector reported {got} features, expected {want}".format(
+            got = len(reported_features),
+            want = _X86_64_REPORT_SIZE,
+        ))
+
     available = {}
-    for reported in reported_features:
+    unavailable = {}
+    for reported, is_available in reported_features.items():
         if reported in _X86_64_SETTABLE_FEATURES:
-            available[reported] = None
+            if is_available:
+                available[reported] = None
+            else:
+                unavailable[reported] = None
     for name, required in _X86_64_INFERRED_FEATURES.items():
-        if required in reported_features:
+        if reported_features.get(required):
             available[name] = None
 
-    # Conservatively drop any feature whose parent feature (per refines_constraint_value) hasn't
-    # been detected: a platform must not set a constraint value whose setting refines a constraint
-    # value the platform doesn't have.
-    names = [
-        name
-        for name in available
-        if _refinement_parents_available(name, available)
-    ]
+    for name in available:
+        parent = X86_64_FEATURE_REFINEMENTS.get(name)
+        if parent != None and parent not in available:
+            fail("The CPU feature detector reported {name} as available, but not its parent feature {parent}".format(
+                name = name,
+                parent = parent,
+            ))
 
-    names += [
-        "no_" + feature
-        for feature in _X86_64_REPORTABLE_V1_FEATURES
-        if feature not in reported_features
-    ]
-
-    return sorted(names)
-
-def _refinement_parents_available(name, available):
-    parent = X86_64_FEATURE_REFINEMENTS.get(name)
-    for _ in range(len(X86_64_FEATURE_REFINEMENTS)):
-        if parent == None:
-            return True
-        if parent not in available:
-            return False
-        parent = X86_64_FEATURE_REFINEMENTS.get(parent)
-    return True
+    return sorted(available.keys()) + sorted(["no_" + name for name in unavailable])

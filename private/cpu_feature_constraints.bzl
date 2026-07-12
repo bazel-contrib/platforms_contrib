@@ -29,10 +29,20 @@ def _detect_x86_64_features(rctx):
     rctx.watch(detector)
     result = rctx.execute([rctx.path(detector)])
     if result.return_code != 0:
-        return []
+        fail("Failed to detect host CPU features: " + result.stderr)
 
-    # The detector prints one cpu_features enum name per line.
-    reported_features = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    # The detector prints every cpu_features enum name on its own line, prefixed with "+" if the
+    # feature is available on the host machine and "-" if not.
+    reported_features = {}
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line[0] not in ["+", "-"]:
+            fail("The CPU feature detector emitted an unexpected line: " + line)
+        if line[1:] in reported_features:
+            fail("The CPU feature detector reported a feature twice: " + line[1:])
+        reported_features[line[1:]] = line[0] == "+"
 
     return x86_64_feature_constraint_names(reported_features)
 
