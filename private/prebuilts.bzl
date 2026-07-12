@@ -7,28 +7,23 @@ visibility("private")
 # release-prebuilts.sh). Keyed by the (os, cpu) constraint values that @platforms//host reports
 # for the hosts the binary runs on. The host_detection module extension backs each entry with an
 # http_file repo named by prebuilt_detector_repo_name, which also has to be listed in
-# MODULE.bazel's use_repo. For now, binaries are only built for x86-64 hosts. Entry shape:
-#
-#     (Label("@platforms//os:linux"), Label("@platforms//cpu:x86_64")): struct(
-#         url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.1/detect_cpu_linux_x86_64",
-#         integrity = "sha256-...",
-#     ),
+# MODULE.bazel's use_repo. For now, binaries are only built for x86-64 hosts.
 #
 # The workflow prints a ready-to-paste snippet for this dict in the release notes. On hosts with
 # no matching entry, host platform detection doesn't declare any CPU feature constraint values
 # (see cpu_feature_constraints.bzl).
 PREBUILT_DETECTORS = {
     (Label("@platforms//os:linux"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.1/detect_cpu_linux_x86_64",
-        integrity = "sha256-qnZuPzOgl1wOHVigbexNZ6lhu6mhbHL1x92ti8aKta4=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_linux_x86_64",
+        integrity = "sha256-w7R6rk3e8A3pVzM8McwhetfV/LTG/LmzXhIg7E92ha4=",
     ),
     (Label("@platforms//os:osx"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.1/detect_cpu_macos_x86_64",
-        integrity = "sha256-ptTK1Zm6Vwf0/pVT5lEw835vh3MFjJxEMYEhBQbpKw8=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_macos_x86_64",
+        integrity = "sha256-Dlf5VghRDsiNvO0zQFJ+4D4NCMo73UJ1ol6r+h+qEXs=",
     ),
     (Label("@platforms//os:windows"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.1/detect_cpu_windows_x86_64.exe",
-        integrity = "sha256-2e6Ka5uhT8jYQvp5qzbLob54T5H+Sga9PjVIovfkQWY=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_windows_x86_64.exe",
+        integrity = "sha256-o+sEXkJWSHvisgqYYHlihRCr4AlQad8oVct/fbkCIWE=",
     ),
 }
 
