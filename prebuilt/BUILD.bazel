@@ -1,0 +1,39 @@
+# Cross-compiles the CPU feature detector used by //host for all supported x86-64 host platforms
+# with the hermetic `llvm` toolchain (registered as a dev dependency in MODULE.bazel), following
+# the approach used by https://github.com/hermeticbuild/codesign.bzl. The prebuilts.yaml workflow
+# builds :for_all_platforms on `prebuilts-v*` tags and publishes the binaries as GitHub release
+# artifacts, which are then referenced from //private:prebuilts.bzl.
+
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "detect_cpu",
+    srcs = select({
+        "@platforms//cpu:x86_64": ["detect_cpu_x86_64.c"],
+    }),
+    target_compatible_with = ["@platforms//cpu:x86_64"],
+    deps = ["@cpu_features//:cpuinfo"],
+)
+
+[
+    platform_transition_filegroup(
+        name = "for_" + name,
+        srcs = [":detect_cpu"],
+        target_platform = "@llvm//platforms:" + platform,
+    )
+    for name, platform in {
+        "linux_x86_64": "linux_x86_64_musl",
+        "macos_x86_64": "macos_x86_64",
+        "windows_x86_64": "windows_x86_64",
+    }.items()
+]
+
+filegroup(
+    name = "for_all_platforms",
+    srcs = [
+        "for_linux_x86_64",
+        "for_macos_x86_64",
+        "for_windows_x86_64",
+    ],
+)

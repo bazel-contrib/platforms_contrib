@@ -19,28 +19,41 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         bazelversion: [7.*, 8.*, 9.*, last_green]
         folder: [examples]
+        os: [ubuntu-latest]
         include:
           - bazelversion: 7.*
             folder: examples
             test_flags: --build_tag_filters=-requires-bazel-8 --test_tag_filters=-requires-bazel-8
           - bazelversion: 9.*
             folder: "."
+            os: ubuntu-latest
             # Wildcard patterns don't expand to platform() targets, so the host platform has to
             # be listed explicitly to be built.
             extra_targets: //host:host
+          # Exercise host platform detection on all supported operating systems.
+          - bazelversion: 9.*
+            folder: examples
+            os: macos-latest
+          - bazelversion: 9.*
+            folder: examples
+            os: macos-15-intel
+          - bazelversion: 9.*
+            folder: examples
+            os: windows-latest
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Configure Bazel version
         working-directory: ${{ matrix.folder }}
+        shell: bash
         run: echo "${{ matrix.bazelversion }}" > .bazelversion
 
       - name: bazel test //...
