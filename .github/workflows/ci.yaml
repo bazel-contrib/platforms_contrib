@@ -102,7 +102,7 @@ jobs:
           - name: alpine-musl-only
             os: ubuntu-24.04
             container: alpine:edge
-            setup: apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing bazel8 curl git
+            setup: apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing 'bazel~9' curl git
             expected: musl_version_constraints("1.2")
           - name: macos-no-libc
             os: macos-15
