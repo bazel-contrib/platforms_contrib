@@ -1,9 +1,29 @@
 load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS")
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
 
+# Autodetected platforms describing the host machine. Both extend @platforms//host, which only
+# reports the OS and CPU architecture, with constraint values detected at repository fetch time.
+# Neither is registered automatically; pass one to --host_platform, --platforms or
+# --extra_execution_platforms as needed.
+#
+# :generic adds constraints that hold for every machine running the same OS and CPU architecture
+# with the same system libraries (currently the Linux libc and its version). Binaries built for it
+# stay as portable as those built for @platforms//host, so it is the safe choice for host tools and
+# for artifacts that are distributed to other machines.
 platform(
-    name = "host",
-    constraint_values = CPU_FEATURE_CONSTRAINTS + LIBC_CONSTRAINTS,
+    name = "generic",
+    constraint_values = LIBC_CONSTRAINTS,
     parents = ["@platforms//host"],
+    visibility = ["//visibility:public"],
+)
+
+# :native further adds the CPU features (and thus the x86-64 microarchitecture level) available on
+# this particular machine. Toolchains that act on these constraints produce binaries that may only
+# run on this machine, akin to -march=native, so only build for it when the outputs never leave the
+# host.
+platform(
+    name = "native",
+    constraint_values = CPU_FEATURE_CONSTRAINTS,
+    parents = [":generic"],
     visibility = ["//visibility:public"],
 )
