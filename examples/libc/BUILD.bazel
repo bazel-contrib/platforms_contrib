@@ -91,10 +91,16 @@ genrule(
     """,
 )
 
+# The expected outputs rely on the pretend-Linux execution platforms having top priority, which
+# Windows machines can't honor (see the .bazelrc in the module root).
 diff_test(
     name = "use_binaries_test",
     file1 = ":output_srcs.txt",
     file2 = "expected_output_srcs.txt",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
 
 foo_binary(
@@ -128,9 +134,14 @@ modern_genrule(
     tools = [":my_tool"],
 )
 
+# See use_binaries_test for why this test is not compatible with Windows.
 diff_test(
     name = "use_my_tool_and_toolchain_test",
     file1 = ":use_my_tool_and_toolchain",
     file2 = "expected_output_tools.txt",
     tags = ["requires-bazel-8"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
