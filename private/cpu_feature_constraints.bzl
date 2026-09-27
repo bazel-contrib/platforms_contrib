@@ -1,4 +1,4 @@
-"""Defines the repository rule detecting the host's CPU features for the platform at //host."""
+"""Defines the repository rule detecting the host's CPU features for the //host:native platform."""
 
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load(":feature_mapping.bzl", "x86_64_feature_constraint_names")
@@ -29,7 +29,16 @@ def _detect_x86_64_features(rctx):
     rctx.watch(detector)
     result = rctx.execute([rctx.path(detector)])
     if result.return_code != 0:
-        fail("Failed to detect host CPU features: " + result.stderr)
+        fail("""The CPU feature detector {detector} failed with exit code {return_code}
+--- stdout ---
+{stdout}
+--- stderr ---
+{stderr}""".format(
+            detector = detector,
+            return_code = result.return_code,
+            stdout = result.stdout,
+            stderr = result.stderr,
+        ))
 
     # The detector prints every cpu_features enum name on its own line, prefixed with "+" if the
     # feature is available on the host machine and "-" if not.

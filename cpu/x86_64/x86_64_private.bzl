@@ -15,9 +15,9 @@ X86_64_LEVELS = X86_64_FEATURES.keys()
 #
 # The list tracks CPUID hardware capabilities, first and foremost those reported by the
 # cpu_features library (https://github.com/google/cpu_features), whose names are also used for
-# the constraint values so that features detected on the host (see //host) map to constraint
-# values directly. Capabilities not (yet) covered by cpu_features use their common lowercase name
-# with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
+# the constraint values so that features detected on the host (see //host:native) map to
+# constraint values directly. Capabilities not (yet) covered by cpu_features use their common
+# lowercase name with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
 X86_64_FEATURES_WITHOUT_LEVEL = [
     "adx",
     "aes",
