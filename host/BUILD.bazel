@@ -26,5 +26,7 @@ platform(
 alias(
     name = "native",
     actual = "//host/private:native",
+    # Default package metadata creates a toolchain resolution cycle on Bazel 7.
+    applicable_licenses = [],
     visibility = ["//visibility:public"],
 )
