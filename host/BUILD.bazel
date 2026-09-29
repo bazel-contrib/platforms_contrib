@@ -1,10 +1,15 @@
 load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS")
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
 # Autodetected platforms describing the host machine. Both extend @platforms//host, which only
 # reports the OS and CPU architecture, with constraint values detected at repository fetch time.
 # Neither is registered automatically; pass one to --host_platform, --platforms or
 # --extra_execution_platforms as needed.
+#
+# TODO: Extend @platforms//host (and :generic) via `parents` instead of inlining their constraints
+# once https://github.com/bazelbuild/bazel/issues/31388, which makes toolchain resolution ignore
+# inherited constraints, is fixed in all supported Bazel versions.
 #
 # :generic adds constraints that hold for every machine running the same OS and CPU architecture
 # with the same system libraries (currently the Linux libc and its version). Binaries built for it
@@ -12,8 +17,7 @@ load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
 # for artifacts that are distributed to other machines.
 platform(
     name = "generic",
-    constraint_values = LIBC_CONSTRAINTS,
-    parents = ["@platforms//host"],
+    constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS,
     visibility = ["//visibility:public"],
 )
 
@@ -23,7 +27,6 @@ platform(
 # host.
 platform(
     name = "native",
-    constraint_values = CPU_FEATURE_CONSTRAINTS,
-    parents = [":generic"],
+    constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS + CPU_FEATURE_CONSTRAINTS,
     visibility = ["//visibility:public"],
 )

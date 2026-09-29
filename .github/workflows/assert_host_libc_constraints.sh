@@ -5,11 +5,15 @@ expected="$1"
 
 bazel build --config=ci //host:generic
 
+# //host:generic inlines the OS and CPU constraints of @platforms//host rather than inheriting
+# them (see host/BUILD.bazel), so they show up in its constraint_values and the expected platform
+# has to list them too.
 mkdir -p smoke_test
 cat > smoke_test/BUILD.bazel <<EOF
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load("//os/linux/libc/glibc:glibc.bzl", "glibc_version_constraints")
 load("//os/linux/libc/musl:musl.bzl", "musl_version_constraints")
-platform(name = "want", constraint_values = $expected)
+platform(name = "want", constraint_values = HOST_CONSTRAINTS + $expected)
 EOF
 
 actual="$(bazel query --output=build //host:generic | buildozer -stdout 'print constraint_values' -:generic)"
