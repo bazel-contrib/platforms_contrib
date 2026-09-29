@@ -1,0 +1,93 @@
+name: Prebuilts
+
+# Builds and releases CPU feature detectors for all supported x86-64 hosts.
+# Push a `prebuilts-v*` tag with release-prebuilts.sh, then copy the release notes' snippets
+# into private/prebuilts.bzl and MODULE.bazel.
+on:
+  push:
+    tags:
+      - "prebuilts-v*"
+
+permissions:
+  attestations: write
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Bazel version
+        run: echo "9.1.1" > .bazelversion
+
+      - name: Build detectors for all platforms
+        run: bazel build -c opt //prebuilt:for_all_platforms
+
+      - name: Stage artifacts
+        run: |
+          mkdir dist
+          for platform in linux_x86_64 macos_x86_64 windows_x86_64; do
+            artifact="detect_cpu_${platform}"
+            if [[ "${platform}" == windows_* ]]; then
+              artifact+=".exe"
+            fi
+            src="$(bazel cquery -c opt --output=files "//prebuilt:for_${platform}")"
+            cp "${src}" "dist/${artifact}"
+          done
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Prebuilt CPU feature detector binaries for \`@platforms_contrib//host:native\`."
+            echo
+            echo "Update \`PREBUILT_DETECTORS\` in \`private/prebuilts.bzl\` to:"
+            echo
+            echo '```python'
+            echo "PREBUILT_DETECTORS = {"
+            repos=()
+            for artifact in dist/*; do
+              name="$(basename "${artifact}")"
+              # detect_cpu_<os>_<cpu>[.exe]
+              os_cpu="${name#detect_cpu_}"
+              os_cpu="${os_cpu%.exe}"
+              os="${os_cpu%%_*}"
+              cpu="${os_cpu#*_}"
+              # @platforms//os names macOS "osx".
+              if [[ "${os}" == macos ]]; then
+                os=osx
+              fi
+              repos+=("detect_cpu_${os}_${cpu}")
+              integrity="sha256-$(openssl dgst -sha256 -binary "${artifact}" | base64)"
+              echo "    (Label(\"@platforms//os:${os}\"), Label(\"@platforms//cpu:${cpu}\")): struct("
+              echo "        url = \"https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${name}\","
+              echo "        integrity = \"${integrity}\","
+              echo "    ),"
+            done
+            echo "}"
+            echo '```'
+            echo
+            echo "and list the backing repos in MODULE.bazel:"
+            echo
+            echo '```python'
+            echo "use_repo(host_detection, \"cpu_feature_constraints\", $(printf '"%s", ' "${repos[@]}")\"libc_constraints\")"
+            echo '```'
+            echo
+            echo "Verify an artifact's provenance with:"
+            echo
+            echo '```'
+            echo "gh attestation verify <artifact> --repo ${GITHUB_REPOSITORY}"
+            echo '```'
+          } > notes.md
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file notes.md

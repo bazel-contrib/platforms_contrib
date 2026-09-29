@@ -1,0 +1,10 @@
+load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS")
+load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+
+# Use the public alias //host:native, which documents this platform.
+platform(
+    name = "native",
+    constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS + CPU_FEATURE_CONSTRAINTS,
+    visibility = ["//host:__pkg__"],
+)

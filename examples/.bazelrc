@@ -3,3 +3,12 @@ common:ci --announce_rc
 # Don't rely on test logs being easily accessible from the test runner,
 # though it makes the log noisier.
 common:ci --test_output=errors
+
+common --enable_platform_specific_config
+# Prefer the host on Windows: unconstrained toolchains would otherwise select the example
+# Linux platforms, breaking tool builds such as the test launcher.
+common:windows --extra_execution_platforms=@platforms//host
+
+# Enable the runfiles tree required by sh_tests on Windows.
+startup --windows_enable_symlinks
+common:windows --enable_runfiles

@@ -1,0 +1,2 @@
+# Preserve line endings across platforms for byte-for-byte output tests.
+* -text
