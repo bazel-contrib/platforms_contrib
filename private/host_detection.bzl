@@ -19,8 +19,7 @@ def _host_detection_impl(mctx):
         name = "cpu_feature_constraints",
     )
 
-    # One http_file repo per prebuilt detector binary. Repos are fetched lazily, so only the repo
-    # matching the host platform (if any) is ever downloaded, by cpu_feature_constraints.
+    # Repos are fetched lazily; cpu_feature_constraints downloads only the host's detector.
     for (os, cpu), prebuilt in PREBUILT_DETECTORS.items():
         http_file(
             name = prebuilt_detector_repo_name(os, cpu),

@@ -1,13 +1,10 @@
-"""Maps the CPU feature names reported by the detect_cpu binary to constraint value names.
+"""Maps detect_cpu output to //cpu/x86_64/feature constraint names.
 
-The detect_cpu binary (see //prebuilt) reports the availability of every enum name used by the
-cpu_features library (https://github.com/google/cpu_features), which the constraint values in
-//cpu/x86_64/feature are named after. Every reported feature with a constraint value is set
-explicitly, as `<feature>` or `no_<feature>`. Features that cpu_features cannot report stay at
-their default, except for a few that are implied by a reported feature.
+The detector (//prebuilt) reports cpu_features names (https://github.com/google/cpu_features).
+Each feature with a constraint becomes `<feature>` or `no_<feature>`. Unreported features keep
+their defaults unless implied by an available feature.
 
-Every name cpu_features can report is accounted for explicitly: a reported feature that is
-neither settable, part of the v1 baseline, nor deliberately ignored fails detection.
+Unknown feature names fail detection; known names are mapped to constraints or explicitly ignored.
 """
 
 load(
@@ -19,36 +16,34 @@ load(
 
 visibility("private")
 
-# Features that cpu_features does not report but that are implied by another reported feature.
+# Unreported features implied by available features.
 _X86_64_INFERRED_FEATURES = {
-    # Every x86-64 CPU that supports SSE4.2 (Nehalem/Bulldozer or later) supports LAHF/SAHF in
-    # 64-bit mode.
+    # x86-64 CPUs with SSE4.2 also support LAHF/SAHF in 64-bit mode.
     "lahf_sahf": "sse4_2",
     # cpu_features only reports AVX if the CPU supports XSAVE and the OS has enabled it.
     "osxsave": "avx",
     "xsave": "avx",
 }
 
-# All features modeled as constraint values in //cpu/x86_64/feature.
+# Features with constraints in //cpu/x86_64/feature.
 _X86_64_SETTABLE_FEATURES = [
     feature
     for features in X86_64_FEATURES.values()
     for feature in features
 ] + X86_64_FEATURES_WITHOUT_LEVEL
 
-# Features that cpu_features (as of 0.11.0) can report but that deliberately have no constraint
-# value.
+# Features reported by cpu_features 0.11.0 but deliberately omitted from constraints.
 _X86_64_IGNORED_FEATURES = [
     # Present on every x86-64 CPU in practice, but not part of the psABI v1 baseline.
     "clfsh",
     "tsc",
-    # CPU implementation details and system-level capabilities with no bearing on code generation.
+    # Implementation details and system capabilities that don't affect code generation.
     "dca",
     "lam",
     "smx",
     "ss",
     "uai",
-    # A performance property (the number of 512-bit FMA units), not an ISA capability.
+    # Number of 512-bit FMA units; affects performance, not instruction availability.
     "avx512_second_fma",
     # Discontinued Xeon Phi-only extensions, removed from LLVM.
     "avx512_4fmaps",
@@ -56,28 +51,25 @@ _X86_64_IGNORED_FEATURES = [
     "avx512_4vnniw",
     "avx512er",
     "avx512pf",
-    # Deprecated TSX lock elision, disabled by Intel via microcode update.
+    # Deprecated TSX lock elision, disabled by Intel microcode.
     "hle",
 ]
 
 _X86_64_KNOWN_FEATURES = _X86_64_SETTABLE_FEATURES + _X86_64_IGNORED_FEATURES
 
-# The number of features the detect_cpu binary reports, i.e. the number of X86FeaturesEnum values
-# in cpu_features 0.11.0. Any other report size indicates a mismatch between the detector binary
-# and this mapping or a truncated report.
+# Expected feature count from cpu_features 0.11.0. Reject other sizes to catch detector version
+# mismatches and truncated output.
 _X86_64_REPORT_SIZE = 74
 
 def x86_64_feature_constraint_names(reported_features):
-    """Returns the names of the constraint values in //cpu/x86_64/feature matching the host CPU.
+    """Returns the host CPU's constraint value names in //cpu/x86_64/feature.
 
     Args:
-        reported_features: a dict from cpu_features enum name to whether the detect_cpu binary
-            reported the feature as available on the host machine.
+        reported_features: Dict mapping cpu_features names to availability booleans.
 
     Returns:
-        A list of constraint value names, one per reported feature with a constraint value:
-        `<feature>` if the feature is available and `no_<feature>` if not, with the available
-        features sorted first, followed by the sorted unavailable ones.
+        Sorted available names (including inferred features), followed by sorted
+        `no_<feature>` names for unavailable features with constraints.
     """
     unknown_features = [
         feature

@@ -13,11 +13,9 @@ X86_64_LEVELS = X86_64_FEATURES.keys()
 # describe optional hardware capabilities such as AES-NI, carry-less multiplication, or AVX-512
 # extensions beyond the v4 baseline.
 #
-# The list tracks CPUID hardware capabilities, first and foremost those reported by the
-# cpu_features library (https://github.com/google/cpu_features), whose names are also used for
-# the constraint values so that features detected on the host (see //host:native) map to
-# constraint values directly. Capabilities not (yet) covered by cpu_features use their common
-# lowercase name with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
+# Use cpu_features names (https://github.com/google/cpu_features) where available so //host:native
+# can map CPUID capabilities directly to constraints. Otherwise, use common lowercase names
+# with `.` and `-` replaced by `_` (e.g. `amx_bf16`, `avx10_1`).
 X86_64_FEATURES_WITHOUT_LEVEL = [
     "adx",
     "aes",

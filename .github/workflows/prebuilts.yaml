@@ -1,9 +1,8 @@
 name: Prebuilts
 
-# Builds the CPU feature detector for all supported x86-64 host platforms and publishes the
-# binaries as GitHub release artifacts. Trigger by pushing a `prebuilts-v*` tag (see
-# release-prebuilts.sh), then update PREBUILT_DETECTORS in private/prebuilts.bzl and use_repo in
-# MODULE.bazel with the snippets printed in the release notes.
+# Builds and releases CPU feature detectors for all supported x86-64 hosts.
+# Push a `prebuilts-v*` tag with release-prebuilts.sh, then copy the release notes' snippets
+# into private/prebuilts.bzl and MODULE.bazel.
 on:
   push:
     tags:
@@ -63,7 +62,7 @@ jobs:
               os_cpu="${os_cpu%.exe}"
               os="${os_cpu%%_*}"
               cpu="${os_cpu#*_}"
-              # The artifacts use the common OS names, @platforms//os calls macOS "osx".
+              # @platforms//os names macOS "osx".
               if [[ "${os}" == macos ]]; then
                 os=osx
               fi

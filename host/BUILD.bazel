@@ -1,34 +1,28 @@
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
-# Autodetected platforms describing the host machine. Both extend @platforms//host, which only
-# reports the OS and CPU architecture, with constraint values detected at repository fetch time.
-# Neither is registered automatically; pass one to --host_platform, --platforms or
-# --extra_execution_platforms as needed.
+# Host platforms extending @platforms//host's OS and CPU constraints with values detected at
+# repository fetch time. Neither is registered automatically; select one with --host_platform,
+# --platforms or --extra_execution_platforms.
 #
-# TODO: Declare @platforms//host as the parent of :generic and :generic as the parent of
-# //host/private:native instead of inlining their constraints once
-# https://github.com/bazelbuild/bazel/issues/31388, which makes toolchain resolution ignore
-# inherited constraints, is fixed in all supported Bazel versions.
+# TODO: Use the parent chain @platforms//host -> :generic -> //host/private:native once all
+# supported Bazel versions honor inherited constraints in toolchain resolution:
+# https://github.com/bazelbuild/bazel/issues/31388.
 #
-# :generic adds constraints that hold for every machine running the same OS and CPU architecture
-# with the same system libraries (currently the Linux libc and its version). Binaries built for it
-# stay as portable as those built for @platforms//host, so it is the safe choice for host tools and
-# for artifacts that are distributed to other machines.
+# :generic adds system library constraints (currently Linux libc and version). Use it for host
+# tools and binaries shared with machines that have the same OS, CPU architecture and libraries.
 platform(
     name = "generic",
     constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS,
     visibility = ["//visibility:public"],
 )
 
-# :native further adds the CPU features (and thus the x86-64 microarchitecture level) available on
-# this particular machine. Toolchains that act on these constraints produce binaries that may only
-# run on this machine, akin to -march=native, so only build for it when the outputs never leave the
-# host.
+# :native also adds this machine's CPU features and x86-64 level. Like -march=native, toolchains
+# using these constraints may produce binaries that only run here. Use it only for binaries that
+# stay on this host.
 #
-# The platform itself lives in a subpackage since detecting the CPU features downloads and runs a
-# prebuilt detector binary. Referring to it through an alias defers that work to the first build
-# that uses :native instead of triggering it whenever this package is loaded, e.g. for :generic.
+# The alias defers downloading and running the CPU detector until :native is used, so loading
+# this package for :generic doesn't trigger CPU detection.
 alias(
     name = "native",
     actual = "//host/private:native",

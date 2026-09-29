@@ -1,13 +1,5 @@
-// Prints every CPU feature known to the cpu_features library
-// (https://github.com/google/cpu_features), one per line, prefixed with "+" if it is available on
-// the host machine and "-" if not:
-//
-//   +sse4_2
-//   -avx512f
-//   ...
-//
-// Feature names are the enum names used by cpu_features (see feature_mapping.bzl in //private
-// for the mapping to constraint values).
+// Prints every cpu_features enum name on its own line, prefixed with "+" if available or "-"
+// otherwise (e.g. "+sse4_2", "-avx512f"). See //private:feature_mapping.bzl for constraint mappings.
 
 #include <stdio.h>
 

@@ -1,4 +1,4 @@
-"""Defines the repository rule detecting the host's CPU features for the //host:native platform."""
+"""Detects host CPU features for //host:native."""
 
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load(":feature_mapping.bzl", "x86_64_feature_constraint_names")
@@ -6,12 +6,11 @@ load(":prebuilts.bzl", "PREBUILT_DETECTORS", "prebuilt_detector_file_name", "pre
 
 visibility("private")
 
-# These Label calls rely on platforms_contrib using the "platforms" repo name for the "platforms"
-# module as HOST_CONSTRAINTS consists of raw label strings.
+# HOST_CONSTRAINTS contains strings, so the platforms module must use the repo name "platforms".
 _HOST_CONSTRAINTS = [Label(constraint) for constraint in HOST_CONSTRAINTS]
 
 def _find_prebuilt_detector():
-    """Returns the label of the prebuilt detector binary matching the host platform, or None."""
+    """Returns the host's prebuilt detector label, or None if unsupported."""
     for (os, cpu), prebuilt in PREBUILT_DETECTORS.items():
         if os in _HOST_CONSTRAINTS and cpu in _HOST_CONSTRAINTS:
             return Label("@{repo}//file:{file}".format(
@@ -21,7 +20,7 @@ def _find_prebuilt_detector():
     return None
 
 def _detect_x86_64_features(rctx):
-    """Returns the list of constraint value names in //cpu/x86_64/feature matching the host CPU."""
+    """Returns the host CPU's constraint value names in //cpu/x86_64/feature."""
     detector = _find_prebuilt_detector()
     if not detector:
         return []
@@ -40,8 +39,7 @@ def _detect_x86_64_features(rctx):
             stderr = result.stderr,
         ))
 
-    # The detector prints every cpu_features enum name on its own line, prefixed with "+" if the
-    # feature is available on the host machine and "-" if not.
+    # Each line is a cpu_features name prefixed with "+" (available) or "-" (unavailable).
     reported_features = {}
     for line in result.stdout.splitlines():
         line = line.strip()
@@ -77,7 +75,7 @@ def _cpu_feature_constraints_impl(rctx):
 cpu_feature_constraints = repository_rule(
     implementation = _cpu_feature_constraints_impl,
     configure = True,
-    # The reported CPU features can change without any watchable file changing, e.g. through a
-    # microcode update that disables a feature, so rerun detection on every server startup.
+    # CPU features can change without file changes (e.g. after a microcode update).
+    # Detect them on every server startup.
     local = True,
 )

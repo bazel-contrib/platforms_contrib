@@ -9,7 +9,7 @@ bazel_dep(name = "rules_testing", version = "0.9.0", dev_dependency = True)
 host_detection = use_extension("//private:host_detection.bzl", "host_detection")
 use_repo(host_detection, "cpu_feature_constraints", "detect_cpu_linux_x86_64", "detect_cpu_osx_x86_64", "detect_cpu_windows_x86_64", "libc_constraints")
 
-### Dependencies only used to cross-compile the prebuilt CPU feature detector (see //prebuilt).
+# Dependencies for cross-compiling CPU feature detectors in //prebuilt.
 
 bazel_dep(name = "bazel_lib", version = "3.2.2", dev_dependency = True)
 bazel_dep(name = "cpu_features", version = "0.11.0", dev_dependency = True)

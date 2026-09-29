@@ -5,12 +5,10 @@ common:ci --announce_rc
 common:ci --test_output=errors
 
 common --enable_platform_specific_config
-# The registered example platforms claim os:linux even on a Windows machine, and unconstrained
-# toolchains (e.g. the autodetected sh toolchain) would make them the default execution platform
-# there, breaking tool builds such as the test launcher. Prefer the real host platform instead.
+# Prefer the host on Windows: unconstrained toolchains would otherwise select the example
+# Linux platforms, breaking tool builds such as the test launcher.
 common:windows --extra_execution_platforms=@platforms//host
 
-# The sh_tests read their data files from the runfiles tree, which Windows doesn't materialize by
-# default.
+# Enable the runfiles tree required by sh_tests on Windows.
 startup --windows_enable_symlinks
 common:windows --enable_runfiles

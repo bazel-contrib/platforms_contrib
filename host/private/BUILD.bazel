@@ -2,8 +2,7 @@ load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS")
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
-# The platform behind the //host:native alias, which is documented there. Only the alias is meant
-# to be referenced by users, so that its label stays stable if the layout changes again.
+# Use the public alias //host:native, which documents this platform.
 platform(
     name = "native",
     constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS + CPU_FEATURE_CONSTRAINTS,

@@ -1,3 +1,2 @@
-# Tests compare generated outputs byte-for-byte against checked-in files; keep all files exactly
-# as committed (no EOL conversion) on every platform.
+# Preserve line endings across platforms for byte-for-byte output tests.
 * -text

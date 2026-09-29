@@ -2,7 +2,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":cfg_variants.bzl", "host_genrule")
 
-# Writes the libc version available on the autodetected host platform (empty on non-Linux hosts).
+# Writes the detected host libc versions (empty on non-Linux hosts).
 host_genrule(
     name = "detect_libc",
     outs = ["output_libc.txt"],
@@ -13,8 +13,7 @@ host_genrule(
     ],
 )
 
-# Writes the x86-64 microarchitecture level of the autodetected host platform, using the fact that
-# the most specialized matching level wins in a select().
+# Writes the host's x86-64 level; select() picks the most specialized matching level.
 host_genrule(
     name = "detect_level",
     outs = ["output_level.txt"],
@@ -26,9 +25,7 @@ host_genrule(
     }) + " > $@",
 )
 
-# Building under the host platform exercises the full detection pipeline (repository rules,
-# detector download/bootstrap, and constraint mapping) on every OS, even where the assertions
-# below don't apply.
+# Exercises host detection on every OS, including where the tests below don't apply.
 build_test(
     name = "host_platform_build_test",
     targets = [
@@ -37,7 +34,7 @@ build_test(
     ],
 )
 
-# Any Linux host is expected to have either glibc or musl.
+# Linux hosts are expected to have glibc or musl.
 sh_test(
     name = "detect_libc_test",
     size = "small",
@@ -47,8 +44,7 @@ sh_test(
     target_compatible_with = ["@platforms//os:linux"],
 )
 
-# Any x86-64 machine that runs Bazel supports at least x86-64-v2 (CI machines are usually v3), so
-# detection must find a level above the v1 baseline.
+# Expect at least x86-64-v2 on CI hosts to check detection beyond the v1 baseline.
 sh_test(
     name = "detect_level_test",
     size = "small",

@@ -34,8 +34,7 @@ jobs:
           - bazelversion: 9.*
             folder: "."
             os: ubuntu-latest
-            # Wildcard patterns don't expand to platform() targets, so the host platforms have to
-            # be listed explicitly to be built.
+            # Wildcard patterns omit platform() targets; list them explicitly.
             extra_targets: //host:generic //host:native
           # Exercise host platform detection on all supported operating systems.
           - bazelversion: 9.*
