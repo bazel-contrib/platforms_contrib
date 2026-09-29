@@ -80,22 +80,38 @@ def _find_ld(rctx, ld_paths):
                 return ld
     return None
 
-# Loaders that predate the version banner are assumed to provide at least glibc 2.17, the
+# Hosts on which no version banner can be found are assumed to provide at least glibc 2.17, the
 # baseline of Bazel 7's release binaries: they reference versioned glibc symbols up to GLIBC_2.17
 # (Bazel 8+ raised this to GLIBC_2.25), so any host running Bazel has at least this version.
 _FALLBACK_GLIBC_VERSION_KEY = (2, 17)
+
+def _read_glibc_version_banner(rctx, file):
+    """Returns the version key of the glibc banner embedded in the given file, or None."""
+
+    # The banner contains "release version 2.XY." as a compile-time string literal, surrounded by
+    # distro-specific text such as "GNU C Library (Ubuntu GLIBC 2.31-0ubuntu9) stable release
+    # version 2.31.".
+    return _extract_version_key(rctx.read(file, watch = "yes"), "release version ")
 
 def _detect_glibc_version(rctx):
     ld = _find_ld(rctx, _GLIBC_LD_PATHS)
     if not ld:
         return None
 
-    # ld.so embeds its --version banner, which contains "release version 2.XY." as a compile-time
-    # string literal, since glibc 2.33 (commit 542923d949e8, "elf: Implement ld.so --version") as
-    # well as in distro builds that backported the ld.so CLI (e.g. RHEL 8's glibc 2.28). Loaders
-    # without the banner (e.g. Debian 11's pristine glibc 2.31) are detected as the fallback
-    # version.
-    version_key = _extract_version_key(rctx.read(ld, watch = "yes"), "release version ")
+    # libc.so.6 has embedded the version banner printed by executing it in every glibc version
+    # that can run Bazel. glibc installs it into the same directory as the actual ld.so, with the
+    # ABI-mandated PT_INTERP path only being a symlink into that directory where the two differ
+    # (e.g. with Debian's multiarch layout), so the file can be found without knowing the distro's
+    # library layout.
+    libc = ld.realpath.dirname.get_child("libc.so.6")
+    rctx.watch(libc)
+    version_key = _read_glibc_version_banner(rctx, libc) if libc.exists else None
+
+    # ld.so only embeds the same banner since glibc 2.33 (commit 542923d949e8, "elf: Implement
+    # ld.so --version") or in distro builds that backported the ld.so CLI (e.g. RHEL 8's glibc
+    # 2.28), but is the only file left to inspect if libc.so.6 isn't where it's expected.
+    if not version_key:
+        version_key = _read_glibc_version_banner(rctx, ld)
     if not version_key:
         version_key = _FALLBACK_GLIBC_VERSION_KEY
     return _floor_to_supported(version_key, GLIBC_VERSIONS)
