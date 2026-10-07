@@ -1,0 +1,60 @@
+# Config setting matching target platforms that only run position-independent executables (PIE).
+#
+# Usage: use `:required` as a `select()` key, e.g. to choose linker flags.
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+# The OS and CPU combinations that require PIE, keyed by the name of their config setting.
+_REQUIREMENTS = {
+    # Android 5.0+ only loads PIE executables:
+    # https://source.android.com/docs/security/enhancements#android-5
+    "android": ["@platforms//os:android"],
+    # Zircon only loads PIE executables:
+    # https://fuchsia.dev/fuchsia-src/concepts/process/program_loading#background_traditional_elf_program_loading
+    "fuchsia": ["@platforms//os:fuchsia"],
+} | {
+    # Apple's linker always emits PIE for arm64 and arm64_32:
+    # https://github.com/apple-oss-distributions/ld64/blob/ld64-951.9/src/ld/Options.cpp#L5685-L5695
+    "{}_{}".format(os, cpu): [
+        "@platforms//os:" + os,
+        "@platforms//cpu:" + cpu,
+    ]
+    for os in [
+        "ios",
+        "macos",
+        "tvos",
+        "visionos",
+        "watchos",
+    ]
+    for cpu in [
+        "aarch64",
+        "arm64_32",
+        "arm64e",
+    ]
+} | {
+    # Windows on ARM can't disable ASLR, so /DYNAMICBASE:NO isn't supported:
+    # https://learn.microsoft.com/en-us/cpp/build/reference/dynamicbase-use-address-space-layout-randomization
+    "windows_" + cpu: [
+        "@platforms//os:windows",
+        "@platforms//cpu:" + cpu,
+    ]
+    for cpu in [
+        "aarch32",
+        "aarch64",
+        "armv7",
+    ]
+}
+
+[
+    config_setting(
+        name = name,
+        constraint_values = constraint_values,
+    )
+    for name, constraint_values in _REQUIREMENTS.items()
+]
+
+selects.config_setting_group(
+    name = "required",
+    match_any = [":" + name for name in _REQUIREMENTS],
+    visibility = ["//visibility:public"],
+)
