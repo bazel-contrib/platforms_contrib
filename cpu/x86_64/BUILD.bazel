@@ -14,9 +14,18 @@
 #     requires, or `x86_64_level_constraints("vN")`, in `exec_compatible_with` /
 #     `target_compatible_with`.
 #
+#   * Declaring the CPU model of a platform that is a specific CPU: set `:model` via
+#     `flags = ["--@platforms_contrib//cpu/x86_64:model=<cpu>"]` (Bazel 8+) and declare the
+#     features available on it as above.
+#
+#   * Reading the CPU model of an x86-64 target platform: add `:model` to the `toolchains` attribute
+#     of a target and use the `X86_64_MODEL` Make variable, e.g. in `-march=$(X86_64_MODEL)`
+#     followed by flags for all features.
+#
 # See `examples/x86_64/BUILD.bazel` for examples of these usage patterns.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":model.bzl", "x86_64_model_flag")
 load(":x86_64_private.bzl", "FEATURES_UP_TO")
 
 [
@@ -30,6 +39,26 @@ load(":x86_64_private.bzl", "FEATURES_UP_TO")
     )
     for level, features in FEATURES_UP_TO.items()
 ]
+
+# The CPU model of the platform as an LLVM CPU name such as "znver4", or "" if the platform isn't
+# a specific CPU. //host:native sets it to the host's CPU as detected by LLVM.
+#
+# It doesn't imply any features: LLVM mostly maps the CPUID family and model to the name, so the
+# platform may lack features of the CPU, e.g. because a VM hides them. Take them from the
+# //cpu/x86_64/feature constraints instead. The value is only meaningful for x86-64 targets.
+#
+# Provides its value as the X86_64_MODEL Make variable. Consume it via the `toolchains` attribute
+# in a BUILD file or directly from a rule implementation by reading its
+# platform_common.TemplateVariableInfo provider.
+x86_64_model_flag(
+    name = "model",
+    build_setting_default = "",
+    # TODO: Use scope = "platform" once Bazel supports it, so that the model doesn't carry over to
+    # other target platforms in transitions. Until then, platforms that aren't a specific CPU
+    # should reset it via their flags.
+    scope = "target",
+    visibility = ["//visibility:public"],
+)
 
 bzl_library(
     name = "x86_64_bzl",

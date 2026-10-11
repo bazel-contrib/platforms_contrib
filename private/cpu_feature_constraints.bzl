@@ -1,6 +1,7 @@
 """Detects host CPU features for //host:native."""
 
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+load("//cpu/x86_64:model.bzl", "x86_64_model_flags")
 load(":feature_mapping.bzl", "x86_64_feature_constraint_names")
 load(":prebuilts.bzl", "PREBUILT_DETECTORS", "prebuilt_detector_file_name", "prebuilt_detector_repo_name")
 
@@ -45,12 +46,16 @@ def _cpu_feature_constraints_impl(rctx):
     report = _detect_x86_64_features(rctx)
     feature_names = x86_64_feature_constraint_names(report) if report != None else []
 
+    # LLVM reports "generic" for CPUs it doesn't know.
+    model = report["cpu"] if report != None and report["cpu"] != "generic" else ""
+    platform_flags = x86_64_model_flags(model) if model else []
+
     rctx.file("BUILD.bazel", 'exports_files(["constraints.bzl"])\n')
     rctx.file("constraints.bzl", "CPU_FEATURE_CONSTRAINTS = [\n{}]\n".format("".join([
         # repr() of a main repository Label omits the leading @@.
         "    Label({}),\n".format(repr(str(Label("//cpu/x86_64/feature:" + name))))
         for name in feature_names
-    ])))
+    ])) + "CPU_PLATFORM_FLAGS = {}\n".format(repr(platform_flags)))
 
     if hasattr(rctx, "repo_metadata"):
         return rctx.repo_metadata(

@@ -1,5 +1,7 @@
 load("@libc_constraints//:constraints.bzl", "GENERIC_LIBC_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+load("//cpu/x86_64:model.bzl", "x86_64_model_flags")
+load("//private:compat_platform.bzl", "compat_platform")
 
 # Host platforms with constraints detected at repository fetch time.
 # Select explicitly with --host_platform, --platforms or --extra_execution_platforms.
@@ -12,14 +14,16 @@ load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 # floors the glibc version to 2.17, 2.28, 2.34 or 2.36, so that hosts with similar glibc versions
 # share outputs of toolchains that compile against the exact version (see
 # //private:libc_constraints.bzl).
-platform(
+compat_platform(
     name = "generic",
     constraint_values = HOST_CONSTRAINTS + GENERIC_LIBC_CONSTRAINTS,
+    # Transitions from :native would otherwise keep the host's CPU model.
+    flags = x86_64_model_flags(""),
     visibility = ["//visibility:public"],
 )
 
-# :native adds the host's exact glibc version and detected CPU features. Toolchains may emit
-# code requiring them.
+# :native adds the host's exact glibc version, detected CPU features and CPU model. Toolchains may
+# emit code requiring them.
 #
 # The alias keeps CPU detection lazy when only :generic is used.
 alias(
