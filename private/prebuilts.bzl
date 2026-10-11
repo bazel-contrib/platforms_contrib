@@ -8,16 +8,16 @@ visibility("private")
 # run `bazel mod tidy` to add its detector repo to MODULE.bazel.
 PREBUILT_DETECTORS = {
     (Label("@platforms//os:linux"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_linux_x86_64",
-        integrity = "sha256-w7R6rk3e8A3pVzM8McwhetfV/LTG/LmzXhIg7E92ha4=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.3/detect_cpu_linux_x86_64",
+        integrity = "sha256-wJ5C2Eg5sncahaDszbnM9CuplpI6fb3xa8y2KJ2M664=",
     ),
     (Label("@platforms//os:osx"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_macos_x86_64",
-        integrity = "sha256-Dlf5VghRDsiNvO0zQFJ+4D4NCMo73UJ1ol6r+h+qEXs=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.3/detect_cpu_macos_x86_64",
+        integrity = "sha256-GmVx0tWwfV8PfV9DHWfttdpsUNVrjgVBHFN783PfPNA=",
     ),
     (Label("@platforms//os:windows"), Label("@platforms//cpu:x86_64")): struct(
-        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.2/detect_cpu_windows_x86_64.exe",
-        integrity = "sha256-o+sEXkJWSHvisgqYYHlihRCr4AlQad8oVct/fbkCIWE=",
+        url = "https://github.com/bazel-contrib/platforms_contrib/releases/download/prebuilts-v0.0.3/detect_cpu_windows_x86_64.exe",
+        integrity = "sha256-NMstrIflkmv28/l1elebWk8TCYLLAdTLJeAShw9nVL8=",
     ),
 }
 
