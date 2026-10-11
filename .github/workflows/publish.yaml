@@ -8,6 +8,9 @@ on:
       tag_name:
         required: true
         type: string
+      release_artifacts_run_id:
+        required: false
+        type: string
     secrets:
       BCR_PUBLISH_TOKEN:
         required: true
@@ -19,13 +22,19 @@ on:
         description: git tag being released
         required: true
         type: string
+      release_artifacts_run_id:
+        description: ID of the release workflow run for the tag
+        required: true
+        type: string
 jobs:
   publish:
-    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.1.0
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.5.1
     with:
       tag_name: ${{ inputs.tag_name }}
       registry_fork: bazel-contrib/bazel-central-registry
       draft: false
+      # The release is still a draft, so its archive is taken from the release run's artifacts.
+      release_artifacts_run_id: ${{ inputs.release_artifacts_run_id || github.run_id }}
     permissions:
       attestations: write
       contents: write
@@ -33,3 +42,13 @@ jobs:
     secrets:
       # Necessary to push to the BCR fork, and to open a pull request against a registry
       publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}
+  publish-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: gh release edit "${TAG}" --draft=false --repo "${GITHUB_REPOSITORY}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag_name }}
