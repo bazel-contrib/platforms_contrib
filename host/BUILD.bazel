@@ -1,4 +1,4 @@
-load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
+load("@libc_constraints//:constraints.bzl", "GENERIC_LIBC_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
 # Host platforms with constraints detected at repository fetch time.
@@ -8,14 +8,18 @@ load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 # supported Bazel versions honor inherited constraints in toolchain resolution:
 # https://github.com/bazelbuild/bazel/issues/31388.
 #
-# :generic adds system libraries (currently Linux libc and version) to the host's OS and CPU.
+# :generic adds system libraries (currently Linux libc and version) to the host's OS and CPU. It
+# floors the glibc version to 2.17, 2.28, 2.34 or 2.36, so that hosts with similar glibc versions
+# share outputs of toolchains that compile against the exact version (see
+# //private:libc_constraints.bzl).
 platform(
     name = "generic",
-    constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS,
+    constraint_values = HOST_CONSTRAINTS + GENERIC_LIBC_CONSTRAINTS,
     visibility = ["//visibility:public"],
 )
 
-# :native adds the host's detected CPU features. Toolchains may emit code requiring them.
+# :native adds the host's exact glibc version and detected CPU features. Toolchains may emit
+# code requiring them.
 #
 # The alias keeps CPU detection lazy when only :generic is used.
 alias(

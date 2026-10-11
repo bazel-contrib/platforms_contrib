@@ -85,6 +85,28 @@ def _find_ld(rctx, ld_paths):
 # (Bazel 8+ raised this to GLIBC_2.25), so any host running Bazel has at least this version.
 _FALLBACK_GLIBC_VERSION_KEY = (2, 17)
 
+# The glibc versions to which //host:generic floors the host's version. Toolchains that compile
+# against the exact glibc version of the target platform thus produce the same outputs on hosts
+# with similar glibc versions, which then run on all of them. Each version unlocks features that
+# such builds can opt into.
+#
+# See NEWS for when each feature was added:
+# https://sourceware.org/git/?p=glibc.git;a=blob;f=NEWS;hb=glibc-2.39
+_GENERIC_GLIBC_VERSIONS = [
+    # The oldest glibc that runs Bazel (see above).
+    "2.17",
+    # getrandom and getentropy (2.25), static PIE (2.27), C11 threads and statx (2.28).
+    "2.28",
+    # _FORTIFY_SOURCE=3 with Clang and library variants for x86-64-v2 to v4 in glibc-hwcaps (2.33),
+    # 64-bit time_t on 32-bit targets with _TIME_BITS=64 (2.34).
+    "2.34",
+    # DT_RELR relocations with -z pack-relative-relocs and arc4random (2.36).
+    "2.36",
+]
+
+def _generic_glibc_version(version):
+    return _floor_to_supported(_version_key(version), _GENERIC_GLIBC_VERSIONS) or version
+
 def _read_glibc_version_banner(rctx, file):
     """Returns the version key of the glibc banner embedded in the given file, or None."""
 
@@ -131,9 +153,13 @@ def _detect_musl_version(rctx):
         return None
     return _floor_to_supported(version_key, MUSL_VERSIONS)
 
+def _sum_expr(exprs):
+    return " + ".join(exprs) if exprs else "[]"
+
 def _libc_constraints_impl(rctx):
     load_statements = []
     constraint_exprs = []
+    generic_constraint_exprs = []
     if Label("@platforms//os:linux") in _HOST_CONSTRAINTS:
         glibc_version = _detect_glibc_version(rctx)
         if glibc_version:
@@ -145,6 +171,11 @@ def _libc_constraints_impl(rctx):
             constraint_exprs.append(
                 'glibc_version_constraints("{version}")'.format(version = glibc_version),
             )
+            generic_constraint_exprs.append(
+                'glibc_version_constraints("{version}")'.format(
+                    version = _generic_glibc_version(glibc_version),
+                ),
+            )
 
         musl_version = _detect_musl_version(rctx)
         if musl_version:
@@ -153,15 +184,16 @@ def _libc_constraints_impl(rctx):
                     label = Label("//os/linux/libc/musl:musl.bzl"),
                 ),
             )
-            constraint_exprs.append(
-                'musl_version_constraints("{version}")'.format(version = musl_version),
-            )
+            musl_constraints = 'musl_version_constraints("{version}")'.format(version = musl_version)
+            constraint_exprs.append(musl_constraints)
+            generic_constraint_exprs.append(musl_constraints)
 
     rctx.file("BUILD.bazel", 'exports_files(["constraints.bzl"])\n')
     rctx.file("constraints.bzl", "\n".join([statement for statement in load_statements]) + (
         "\n\n" if load_statements else ""
-    ) + "LIBC_CONSTRAINTS = {}\n".format(
-        " + ".join(constraint_exprs) if constraint_exprs else "[]",
+    ) + "LIBC_CONSTRAINTS = {}\nGENERIC_LIBC_CONSTRAINTS = {}\n".format(
+        _sum_expr(constraint_exprs),
+        _sum_expr(generic_constraint_exprs),
     ))
 
     if hasattr(rctx, "repo_metadata"):
@@ -178,4 +210,5 @@ libc_constraints = repository_rule(
 parsing_for_tests = struct(
     extract_version_key = _extract_version_key,
     floor_to_supported = _floor_to_supported,
+    generic_glibc_version = _generic_glibc_version,
 )

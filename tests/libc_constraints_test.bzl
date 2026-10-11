@@ -53,6 +53,20 @@ def _glibc_version_below_supported_floor_test(env):
         ) == None,
     ).equals(True)
 
+def _generic_glibc_version_test(env):
+    for version, generic_version in {
+        "2.16": "2.16",
+        "2.17": "2.17",
+        "2.27": "2.17",
+        "2.28": "2.28",
+        "2.33": "2.28",
+        "2.35": "2.34",
+        "2.36": "2.36",
+        "2.39": "2.36",
+        "2.45": "2.36",
+    }.items():
+        env.expect.that_str(parsing_for_tests.generic_glibc_version(version)).equals(generic_version)
+
 def _musl_usage_banner_test(env):
     env.expect.that_str(_detected_version(
         "musl libc (x86_64)\nVersion 1.2.5\nDynamic Program Loader\nUsage: /lib/ld-musl-x86_64.so.1 [options] [--] pathname [args]\n",
@@ -107,6 +121,7 @@ def libc_constraints_test_suite(name):
             _glibc_snapshot_version_test,
             _glibc_version_clipping_test,
             _glibc_version_below_supported_floor_test,
+            _generic_glibc_version_test,
             _musl_usage_banner_test,
             _musl_version_clipping_test,
             _musl_version_below_supported_floor_test,
