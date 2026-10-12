@@ -14,13 +14,12 @@
 #     requires, or `x86_64_level_constraints("vN")`, in `exec_compatible_with` /
 #     `target_compatible_with`.
 #
-#   * Declaring the CPU model of a platform that is a specific CPU: set `:model` via
-#     `flags = ["--@platforms_contrib//cpu/x86_64:model=<cpu>"]` (Bazel 8+) and declare the
-#     features available on it as above.
+#   * Declaring the exact CPU model of a platform: set `:model` via
+#     `flags = ["--@platforms_contrib//cpu/x86_64:model=<cpu>"]` (Bazel 8+). This is independent of
+#     the features declared above.
 #
 #   * Reading the CPU model of an x86-64 target platform: add `:model` to the `toolchains` attribute
-#     of a target and use the `X86_64_MODEL` Make variable, e.g. in `-march=$(X86_64_MODEL)`
-#     followed by flags for all features.
+#     of a target and use the `X86_64_MODEL` Make variable.
 #
 # See `examples/x86_64/BUILD.bazel` for examples of these usage patterns.
 
