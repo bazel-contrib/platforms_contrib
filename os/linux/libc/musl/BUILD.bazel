@@ -15,8 +15,18 @@
 #
 # See `examples/libc/BUILD.bazel` for examples of all three usage patterns.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
 load(":musl_private.bzl", "MUSL_VERSIONS", "target_musl_version")
+
+bzl_library(
+    name = "musl_bzl",
+    srcs = [
+        "musl.bzl",
+        "musl_private.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
 
 alias(
     name = "available",

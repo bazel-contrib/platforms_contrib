@@ -16,6 +16,7 @@
 #
 # See `examples/x86_64/BUILD.bazel` for examples of these usage patterns.
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load(":x86_64_private.bzl", "FEATURES_UP_TO")
 
 [
@@ -29,3 +30,12 @@ load(":x86_64_private.bzl", "FEATURES_UP_TO")
     )
     for level, features in FEATURES_UP_TO.items()
 ]
+
+bzl_library(
+    name = "x86_64_bzl",
+    srcs = [
+        "x86_64.bzl",
+        "x86_64_private.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
