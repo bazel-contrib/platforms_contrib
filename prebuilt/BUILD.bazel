@@ -3,7 +3,7 @@
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load(":cfg_variants.bzl", "linux_x86_64_filegroup", "macos_x86_64_filegroup", "windows_x86_64_filegroup")
+load(":cfg_variants.bzl", "linux_aarch64_filegroup", "linux_x86_64_filegroup", "macos_aarch64_filegroup", "macos_x86_64_filegroup", "windows_x86_64_filegroup")
 
 cc_library(
     name = "cpu_features",
@@ -35,6 +35,25 @@ cc_binary(
     ],
 )
 
+# aarch64 host CPU detector, cross-compiled for Linux (cpu_features) and macOS (sysctl, no deps). See
+# the header of detect_cpu_aarch64.cc. Unrelated to the x86-only :cpu_features library above.
+cc_binary(
+    name = "detect_cpu_aarch64",
+    srcs = [
+        "aarch64_cpu_models.inc",  # generated MIDR -> -mcpu table, included by the Linux branch
+        "detect_cpu_aarch64.cc",
+    ],
+    linkopts = select({
+        "@platforms//os:macos": ["-Wl,-x"],
+        "//conditions:default": ["-Wl,--strip-all"],
+    }),
+    target_compatible_with = ["@platforms//cpu:aarch64"],
+    deps = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@cpu_features//:cpuinfo"],
+    }),
+)
+
 [
     platform_filegroup(
         name = "for_" + name,
@@ -47,10 +66,23 @@ cc_binary(
     }.items()
 ]
 
+[
+    platform_filegroup(
+        name = "for_" + name,
+        srcs = [":detect_cpu_aarch64"],
+    )
+    for name, platform_filegroup in {
+        "linux_aarch64": linux_aarch64_filegroup,
+        "macos_aarch64": macos_aarch64_filegroup,
+    }.items()
+]
+
 filegroup(
     name = "for_all_platforms",
     srcs = [
+        "for_linux_aarch64",
         "for_linux_x86_64",
+        "for_macos_aarch64",
         "for_macos_x86_64",
         "for_windows_x86_64",
     ],

@@ -1,0 +1,33 @@
+# The CPU model of an Arm platform. A CPU model is a property of the architecture family rather than
+# of one execution state, so it lives here at the family level instead of under a per-state package
+# such as //cpu/aarch64 (whose feature constraints are specific to the AArch64 execution state).
+#
+# Usage:
+#
+#   * Declaring the exact CPU model of a platform: set `:model` via
+#     `flags = ["--@platforms_contrib//cpu/arm:model=<cpu>"]` (Bazel 8+). This is independent of
+#     the features the platform declares.
+#
+#   * Reading the CPU model of an Arm target platform: add `:model` to the `toolchains` attribute of
+#     a target and use the `ARM_MODEL` Make variable.
+
+load(":model.bzl", "arm_model_flag")
+
+# The CPU model of the platform as an LLVM CPU name such as "neoverse-n1" or "apple-m4", or "". It is
+# consumed via -mcpu / -mtune, not -march.
+#
+# Do not derive any information about features from this value. Instead, use the per-execution-state
+# feature constraints (//cpu/aarch64/feature).
+#
+# Provides its value as the ARM_MODEL Make variable. Consume it via the `toolchains` attribute in a
+# BUILD file or directly from a rule implementation by reading its
+# platform_common.TemplateVariableInfo provider. The value is only meaningful for Arm targets.
+arm_model_flag(
+    name = "model",
+    build_setting_default = "",
+    # TODO: Use scope = "platform" once Bazel supports it, so that the model doesn't carry over to
+    # other target platforms in transitions. Until then, platforms that do not correspond to a
+    # specific CPU should reset it via their flags.
+    scope = "target",
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,26 @@
+# Constraints describing individual aarch64 CPU features, named by their -march extension spelling
+# (`-march=armv8-a+<feature>`). The names are shared by Clang, GCC and MSVC (`/arch:armv8.0+<feature>`),
+# with a few differences between compilers (for example GCC spells `rdma` for `rdm`). The list is
+# generated from LLVM; see //cpu/aarch64:generate.
+#
+# For each feature, this package defines:
+#
+#   * a `<feature>_setting` constraint setting,
+#   * `<feature>_available` and `<feature>_unavailable` constraint values for `platform`s and
+#     `exec_compatible_with` / `target_compatible_with`, and
+#   * `<feature>` and `no_<feature>` config settings to use as `select()` keys, e.g.
+#     `@platforms_contrib//cpu/aarch64/feature:sve`.
+#
+# Baseline features (`fp` and `simd`) default to available; all others default to unavailable.
+
+load("//cpu/aarch64:aarch64_features.bzl", "AARCH64_FEATURES")
+load("//cpu/aarch64:aarch64_private.bzl", "AARCH64_BASELINE_FEATURES")
+load(":feature.bzl", "aarch64_feature")
+
+[
+    aarch64_feature(
+        name = feature,
+        available_by_default = feature in AARCH64_BASELINE_FEATURES,
+    )
+    for feature in AARCH64_FEATURES
+]

@@ -1,6 +1,11 @@
 load("@rules_testing//lib:test_suite.bzl", "test_suite")
 load("//cpu/x86_64:x86_64_private.bzl", "X86_64_EXTRA_FEATURES", "X86_64_LLVM_FEATURES")
-load("//private:feature_mapping.bzl", "validation_for_tests", "x86_64_feature_constraint_names")
+load(
+    "//private:feature_mapping.bzl",
+    "aarch64_feature_constraint_names",
+    "validation_for_tests",
+    "x86_64_feature_constraint_names",
+)
 
 visibility("private")
 
@@ -55,6 +60,38 @@ def _missing_prerequisite_test(env):
     report["features"]["avx10.2"] = True
     env.expect.that_str(validation_for_tests.report_error(report)).contains("requires avx10.1")
 
+def _aarch64_report(features):
+    # The aarch64 detector reports only the features it positively detected.
+    return {"cpu": "", "features": {name: True for name in features}}
+
+def _aarch64_available_only_test(env):
+    report = _aarch64_report(["fp", "simd", "sve", "sve2", "sme", "sme2"])
+    names = aarch64_feature_constraint_names(report)
+    for name in ["fp", "simd", "sve2", "sme2"]:
+        env.expect.that_bool(name + "_available" in names).equals(True)
+
+    # Sparse: an undetected feature is absent entirely, never reported unavailable.
+    env.expect.that_bool("aes_available" in names).equals(False)
+    for name in names:
+        env.expect.that_bool(name.endswith("_available")).equals(True)
+
+def _aarch64_empty_cpu_ok_test(env):
+    # The aarch64 detector reports an empty model for an unknown CPU; that must validate (x86-64
+    # requires a nonempty cpu).
+    report = _aarch64_report(["fp", "simd"])
+    env.expect.that_bool(validation_for_tests.aarch64_report_error(report) == None).equals(True)
+
+def _aarch64_unknown_feature_test(env):
+    report = _aarch64_report(["fp", "not_a_token"])
+    env.expect.that_str(validation_for_tests.aarch64_report_error(report)).contains("unknown [not_a_token]")
+
+def _aarch64_malformed_report_test(env):
+    report = _aarch64_report(["fp"])
+    report["features"]["sve"] = 1
+    env.expect.that_str(validation_for_tests.aarch64_report_error(report)).contains("must be a boolean")
+    env.expect.that_str(validation_for_tests.aarch64_report_error({"cpu": "", "features": []})).contains("must be a dictionary")
+    env.expect.that_str(validation_for_tests.aarch64_report_error({"cpu": 5, "features": {}})).contains("string cpu")
+
 def feature_mapping_test_suite(name):
     test_suite(
         name = name,
@@ -64,5 +101,9 @@ def feature_mapping_test_suite(name):
             _unknown_feature_test,
             _malformed_report_test,
             _missing_prerequisite_test,
+            _aarch64_available_only_test,
+            _aarch64_empty_cpu_ok_test,
+            _aarch64_unknown_feature_test,
+            _aarch64_malformed_report_test,
         ],
     )

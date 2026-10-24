@@ -1,8 +1,9 @@
 """Detects host CPU features for //host:native."""
 
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+load("//cpu/arm:model.bzl", "arm_model_flags")
 load("//cpu/x86_64:model.bzl", "x86_64_model_flags")
-load(":feature_mapping.bzl", "x86_64_feature_constraint_names")
+load(":feature_mapping.bzl", "aarch64_feature_constraint_names", "x86_64_feature_constraint_names")
 load(":prebuilts.bzl", "PREBUILT_DETECTORS", "prebuilt_detector_file_name", "prebuilt_detector_repo_name")
 
 visibility("private")
@@ -11,21 +12,18 @@ visibility("private")
 _HOST_CONSTRAINTS = [Label(constraint) for constraint in HOST_CONSTRAINTS]
 
 def _find_prebuilt_detector():
-    """Returns the host's prebuilt detector label, or None if unsupported."""
+    """Returns (detector label, cpu constraint) for the host, or (None, None) if unsupported."""
     for (os, cpu), prebuilt in PREBUILT_DETECTORS.items():
         if os in _HOST_CONSTRAINTS and cpu in _HOST_CONSTRAINTS:
-            return Label("@{repo}//file:{file}".format(
+            detector = Label("@{repo}//file:{file}".format(
                 repo = prebuilt_detector_repo_name(os, cpu),
                 file = prebuilt_detector_file_name(prebuilt),
             ))
-    return None
+            return detector, cpu
+    return None, None
 
-def _detect_x86_64_features(rctx):
-    """Returns the detector report, or None on unsupported hosts."""
-    detector = _find_prebuilt_detector()
-    if not detector:
-        return None
-
+def _run_detector(rctx, detector):
+    """Runs the detector and returns its decoded JSON report."""
     rctx.watch(detector)
     result = rctx.execute([rctx.path(detector)])
     if result.return_code != 0:
@@ -39,22 +37,53 @@ def _detect_x86_64_features(rctx):
             stdout = result.stdout,
             stderr = result.stderr,
         ))
-
     return json.decode(result.stdout)
 
-def _cpu_feature_constraints_impl(rctx):
-    report = _detect_x86_64_features(rctx)
-    feature_names = x86_64_feature_constraint_names(report) if report != None else []
-
+def _x86_64_constraints(report):
     # LLVM reports "generic" for CPUs it doesn't know.
-    model = report["cpu"] if report != None and report["cpu"] != "generic" else ""
-    platform_flags = x86_64_model_flags(model) if model else []
+    model = report["cpu"] if report["cpu"] != "generic" else ""
+    return (
+        x86_64_feature_constraint_names(report),
+        "//cpu/x86_64/feature:",
+        x86_64_model_flags(model) if model else [],
+    )
+
+def _aarch64_constraints(report):
+    # The aarch64 detector reports an LLVM -mcpu name, or "" for a CPU it does not know.
+    model = report["cpu"]
+    return (
+        aarch64_feature_constraint_names(report),
+        "//cpu/aarch64/feature:",
+        arm_model_flags(model) if model else [],
+    )
+
+# Maps the host's @platforms//cpu constraint name to the function that turns a detector report into
+# (feature constraint names, feature constraint package, platform flags).
+_CONSTRAINTS_BY_CPU = {
+    "x86_64": _x86_64_constraints,
+    "aarch64": _aarch64_constraints,
+}
+
+def _cpu_feature_constraints_impl(rctx):
+    detector, cpu = _find_prebuilt_detector()
+
+    feature_labels = []
+    platform_flags = []
+    if detector:
+        handler = _CONSTRAINTS_BY_CPU.get(cpu.name)
+        if not handler:
+            fail("No CPU feature mapping for host CPU {}".format(cpu))
+        feature_names, feature_package, platform_flags = handler(_run_detector(rctx, detector))
+        feature_labels = [
+            # repr() of a main repository Label omits the leading @@.
+            str(Label(feature_package + name))
+            for name in feature_names
+        ]
 
     rctx.file("BUILD.bazel", 'exports_files(["constraints.bzl"])\n')
     rctx.file("constraints.bzl", "CPU_FEATURE_CONSTRAINTS = [\n{}]\n".format("".join([
-        # repr() of a main repository Label omits the leading @@.
-        "    Label({}),\n".format(repr(str(Label("//cpu/x86_64/feature:" + name))))
-        for name in feature_names
+        "    Label({}),\n".format(repr(label))
+        for label in feature_labels
     ])) + "CPU_PLATFORM_FLAGS = {}\n".format(repr(platform_flags)))
 
     if hasattr(rctx, "repo_metadata"):

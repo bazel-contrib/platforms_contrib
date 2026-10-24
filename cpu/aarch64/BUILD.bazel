@@ -1,0 +1,47 @@
+# aarch64 CPU feature constraints. The per-feature constraint values and config settings live in
+# //cpu/aarch64/feature; this package holds the generated feature list and the Starlark library for
+# the public .bzl files.
+#
+# Usage:
+#
+#   * Defining a `platform`: list the individual `//cpu/aarch64/feature:<feature>_available` values
+#     in the `platform`'s `constraint_value`s. Features are specific to the AArch64 execution state.
+#
+#   * Usage in `select()`: use a `//cpu/aarch64/feature:<feature>` config setting as a key.
+#
+#   * Constraining a toolchain: list the `//cpu/aarch64/feature:<feature>_available` values it
+#     requires in `exec_compatible_with` / `target_compatible_with`.
+#
+#   * The CPU model is the family-level `//cpu/arm:model` flag, never a source of feature information.
+#
+# Only `@platforms//cpu:aarch64` is covered; AArch32 and arm64e are out of scope.
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
+bzl_library(
+    name = "aarch64_bzl",
+    srcs = [
+        "aarch64_features.bzl",
+        "aarch64_private.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Regenerates aarch64_features.bzl and //prebuilt:aarch64_cpu_models.inc from the LLVM version pinned
+# by the llvm module in MODULE.bazel: `bazel run //cpu/aarch64:generate`. Manual so that wildcard
+# builds do not resolve a Python toolchain.
+py_binary(
+    name = "generate",
+    srcs = ["generate.py"],
+    args = [
+        "$(rlocationpath @llvm-project//llvm:lib/Target/AArch64/AArch64Features.td)",
+        "$(rlocationpath @llvm-project//llvm:lib/TargetParser/Host.cpp)",
+    ],
+    data = [
+        "@llvm-project//llvm:lib/Target/AArch64/AArch64Features.td",
+        "@llvm-project//llvm:lib/TargetParser/Host.cpp",
+    ],
+    tags = ["manual"],
+    deps = ["@rules_python//python/runfiles"],
+)

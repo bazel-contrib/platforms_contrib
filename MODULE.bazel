@@ -12,8 +12,10 @@ use_repo(host_detection, "cpu_feature_constraints", "detect_cpu_linux_x86_64", "
 
 # Dependencies for cross-compiling CPU feature detectors in //prebuilt.
 
+bazel_dep(name = "cpu_features", version = "0.11.0", dev_dependency = True)
 bazel_dep(name = "llvm", version = "0.8.24", dev_dependency = True)
 bazel_dep(name = "rules_cc", version = "0.2.25", dev_dependency = True)
+bazel_dep(name = "rules_python", version = "2.4.3", dev_dependency = True)
 bazel_dep(name = "with_cfg.bzl", version = "1.0.1", dev_dependency = True)
 
 # Dev-only extension metadata fix, pending the next release.

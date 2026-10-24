@@ -1,6 +1,6 @@
 name: Prebuilts
 
-# Builds and releases CPU feature detectors for all supported x86-64 hosts.
+# Builds and releases CPU feature detectors for all supported hosts (x86-64, and aarch64 Linux/macOS).
 # Push a `prebuilts-v*` tag with release-prebuilts.sh, then copy the release notes' snippet
 # into private/prebuilts.bzl.
 on:
@@ -32,7 +32,7 @@ jobs:
       - name: Stage artifacts
         run: |
           mkdir dist
-          for platform in linux_x86_64 macos_x86_64 windows_x86_64; do
+          for platform in linux_x86_64 macos_x86_64 windows_x86_64 linux_aarch64 macos_aarch64; do
             artifact="detect_cpu_${platform}"
             if [[ "${platform}" == windows_* ]]; then
               artifact+=".exe"

@@ -1,5 +1,6 @@
-"""Validates the LLVM detector report and maps features to constraint values."""
+"""Validates a CPU feature detector report and maps features to constraint values."""
 
+load("//cpu/aarch64:aarch64_features.bzl", "AARCH64_FEATURES")
 load(
     "//cpu/x86_64:x86_64_private.bzl",
     "X86_64_EXTRA_FEATURES",
@@ -54,4 +55,43 @@ def x86_64_feature_constraint_names(report):
         for name in X86_64_LLVM_FEATURES + X86_64_EXTRA_FEATURES
     ])
 
-validation_for_tests = struct(report_error = _report_error)
+def _aarch64_report_error(report):
+    # The aarch64 detector reports a sparse set: only the -march tokens it detected, as {token: true}.
+    # Unlike x86-64 there is no dense feature list to match (so no "missing" check), and the CPU
+    # model is "" for a CPU the detector does not know (see prebuilt/detect_cpu_aarch64.cc).
+    if type(report) != "dict":
+        return "The CPU feature detector must report a JSON object"
+    if type(report.get("cpu")) != "string":
+        return "The CPU feature detector must report a string cpu"
+    features = report.get("features")
+    if type(features) != "dict":
+        return "The CPU feature detector's features must be a dictionary"
+    unknown = sorted([name for name in features if name not in AARCH64_FEATURES])
+    if unknown:
+        return "CPU detector features mismatch: unknown [{}]".format(", ".join(unknown))
+    for name, value in features.items():
+        if type(value) != "bool":
+            return "CPU detector feature {} must be a boolean".format(name)
+    return None
+
+def aarch64_feature_constraint_names(report):
+    """Returns the available constraint name for every feature the detector reports present.
+
+    The aarch64 detector is sparse (it emits only positively detected features), so this returns
+    only "_available" names. Undetected features are omitted and fall back to their constraint
+    setting's default: unavailable, except the fp/simd baseline. See prebuilt/detect_cpu_aarch64.cc.
+    """
+    error = _aarch64_report_error(report)
+    if error:
+        fail(error)
+    features = report["features"]
+    return sorted([
+        name + "_available"
+        for name in AARCH64_FEATURES
+        if features.get(name)
+    ])
+
+validation_for_tests = struct(
+    report_error = _report_error,
+    aarch64_report_error = _aarch64_report_error,
+)

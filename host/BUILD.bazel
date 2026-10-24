@@ -1,5 +1,6 @@
 load("@libc_constraints//:constraints.bzl", "GENERIC_LIBC_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+load("//cpu/arm:model.bzl", "arm_model_flags")
 load("//cpu/x86_64:model.bzl", "x86_64_model_flags")
 load("//private:compat_platform.bzl", "compat_platform")
 
@@ -17,8 +18,9 @@ load("//private:compat_platform.bzl", "compat_platform")
 compat_platform(
     name = "generic",
     constraint_values = HOST_CONSTRAINTS + GENERIC_LIBC_CONSTRAINTS,
-    # Transitions from :native would otherwise keep the host's CPU model.
-    flags = x86_64_model_flags(""),
+    # Transitions from :native would otherwise keep the host's CPU model. Reset both arch models so
+    # this works whatever the host CPU is.
+    flags = x86_64_model_flags("") + arm_model_flags(""),
     visibility = ["//visibility:public"],
 )
 
