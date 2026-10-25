@@ -20,8 +20,9 @@
 load(":libc_private.bzl", "LIBC_FLAVORS", "libc_preference_flag", "preferred_libc")
 
 # A ranking of the libc options: "glibc" and "musl" require the target platform to make the flavor
-# available, while "static-musl" links musl fully statically and is viable on every Linux platform.
-# The preferred option is the first viable one. Rankings without a viable option are an error.
+# available, while "static-glibc" and "static-musl" link the flavor fully statically and are viable
+# on every Linux platform. The preferred option is the first viable one. Rankings without a viable
+# option are an error.
 libc_preference_flag(
     name = "preference",
     build_setting_default = [

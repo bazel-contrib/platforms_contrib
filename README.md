@@ -145,6 +145,9 @@ So that all toolchains in a build make the same choice, the list flag `@platform
 
 * `glibc` and `musl`: link against the platform's copy of the flavor, which requires the platform to provide it.
 * `static-musl`: link fully statically against musl, which doesn't depend on the platform's libc and is thus viable on every Linux platform.
+* `static-glibc`: link fully statically against glibc, which is viable on every Linux platform in the same way.
+  However, glibc still loads shared objects of the exact glibc version used for linking at runtime for NSS (e.g. `getaddrinfo` and `getpwnam`), iconv and `dlopen`.
+  Rank this option only if the binaries don't rely on these features, e.g. to keep using code that requires glibc in `scratch` images.
 
 The preferred option is the first viable one.
 A platform without libc constraints provides no libc, which also represents container images such as `scratch`.
@@ -157,6 +160,7 @@ Typical rankings are:
 * `glibc,musl`: link against the platform's libc, preferring glibc.
 * `static-musl`: build portable, fully static binaries for all Linux platforms.
 * `glibc,static-musl`: link against the platform's glibc if it provides one and build fully static binaries otherwise, e.g. for `scratch` or Alpine images.
+* `glibc,static-glibc`: the same for code that requires glibc.
 
 On Bazel 9 and later, exec configurations always use the default ranking, so that rankings that leave out glibc don't break tools built for glibc-only execution platforms.
 

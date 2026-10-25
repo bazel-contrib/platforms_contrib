@@ -11,9 +11,7 @@ _FULLY_STATIC_PREFIX = "static-"
 
 # The values of //os/linux/libc:preference: a flavor to link against the platform's copy of, or a
 # flavor to link fully statically, which doesn't depend on the platform's libc.
-LIBC_PREFERENCES = LIBC_FLAVORS + [
-    _FULLY_STATIC_PREFIX + "musl",
-]
+LIBC_PREFERENCES = LIBC_FLAVORS + [_FULLY_STATIC_PREFIX + flavor for flavor in LIBC_FLAVORS]
 
 _LibcPreferenceInfo = provider(
     doc = "The ranking of libc options set via //os/linux/libc:preference.",

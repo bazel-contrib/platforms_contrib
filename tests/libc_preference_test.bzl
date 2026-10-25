@@ -105,8 +105,11 @@ def libc_preference_test_suite(name):
         ("glibc_fallback_static_musl", "glibc", ["glibc", "static-musl"], "glibc", False),
         ("musl_default", "musl", None, "musl", False),
         ("musl_fallback_static_musl", "musl", ["glibc", "static-musl"], "musl", True),
+        ("musl_static_glibc", "musl", ["static-glibc"], "glibc", True),
+        ("glibc_and_musl_static_glibc", "glibc_and_musl", ["static-glibc", "musl"], "glibc", True),
         # Without libc constraints, only fully static options are viable.
         ("no_libc_static_musl", "linux", ["glibc", "musl", "static-musl"], "musl", True),
+        ("no_libc_static_glibc", "linux", ["glibc", "static-glibc", "static-musl"], "glibc", True),
         # The ranking only applies to Linux.
         ("macos", "macos", ["static-musl"], "", False),
     ]:
@@ -135,7 +138,7 @@ def libc_preference_test_suite(name):
         ("unavailable", "glibc", ["musl"], "None of the options in --{}=musl is viable on the target platform, which makes available: \"glibc\"".format(_PREFERENCE)),
         ("no_libc", "linux", None, "The target platform doesn't make any libc available, so none of the options in --{}=glibc,musl is viable.".format(_PREFERENCE)),
         ("empty", "glibc", [], "None of the options in --{}= is viable".format(_PREFERENCE)),
-        ("unsupported", "glibc", ["bionic", "glibc"], 'Unsupported libc preference "bionic" in --{}, expected one of: "glibc", "musl", "static-musl"'.format(_PREFERENCE)),
+        ("unsupported", "glibc", ["bionic", "glibc"], 'Unsupported libc preference "bionic" in --{}, expected one of: "glibc", "musl", "static-glibc", "static-musl"'.format(_PREFERENCE)),
     ]:
         analysis_test(
             name = "{}_{}_test".format(name, test),
