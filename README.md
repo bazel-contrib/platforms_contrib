@@ -3,7 +3,7 @@
 platforms_contrib provides standardized constraints and flags for expressive Bazel platform definitions, beyond the standard OS and CPU constraints provided by [bazelbuild/platforms](https://github.com/bazelbuild/platforms).
 It currently covers:
 
-* [libc flavor and version](#libc-flavor-and-version-linux-only) (currently Linux only)
+* [libc flavor, version and preference](#libc-flavor-and-version-linux-only) (currently Linux only)
 * [CPU features and model](#cpu-features-and-model-x86-64-only) (currently x86-64 only)
 
 We plan to work on support for non-Linux OSes and ARM CPUs next.
@@ -137,6 +137,33 @@ platform(
 
 Always use these functions instead of listing individual `constraint_value`s as new values may be added.
 Bazel 9.2.0 and later enforce completeness.
+
+### Preferred flavor
+
+Platforms that provide both glibc and musl leave the choice between them to toolchains.
+So that all toolchains in a build make the same choice, the list flag `@platforms_contrib//os/linux/libc:preference` ranks the flavors and defaults to `glibc,musl`.
+The preferred flavor is the first listed one that the target platform provides, where platforms without any libc constraints count as providing all flavors.
+If none of the listed flavors is available, analysis fails, so `--@platforms_contrib//os/linux/libc:preference=musl` ensures that toolchains never target glibc.
+
+On Bazel 9 and later, exec configurations always use the default ranking, so that rankings that leave out glibc don't break tools built for glibc-only execution platforms.
+
+Toolchains and rules that choose between libc flavors should follow the preference: use `@platforms_contrib//os/linux/libc:glibc_preferred` and `@platforms_contrib//os/linux/libc:musl_preferred` as `select()` conditions, or read the preferred flavor from the `$(PREFERRED_LIBC)` Make variable or the `platform_common.TemplateVariableInfo` provider of `@platforms_contrib//os/linux/libc:preferred`.
+The flavor is empty for non-Linux platforms.
+Code that depends on the libc it is actually compiled against should still use the `config_setting`s in `@rules_cc//cc/libc`.
+
+#### Example
+
+A toolchain for a language that targets either libc flavor:
+
+```starlark
+my_lang_toolchain(
+    name = "linux_x86_64_toolchain_impl",
+    target_triple = select({
+        "@platforms_contrib//os/linux/libc:musl_preferred": "x86_64-unknown-linux-musl",
+        "//conditions:default": "x86_64-unknown-linux-gnu",
+    }),
+)
+```
 
 ## CPU features and model (x86-64 only)
 

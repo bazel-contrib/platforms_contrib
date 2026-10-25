@@ -1,0 +1,49 @@
+# The libc flavor that toolchains should target on Linux platforms, chosen from the flavors that the
+# platform makes available via the constraints in `:glibc` and `:musl`.
+#
+# Usage:
+#
+#   * Choosing the flavor: set `:preference` to a ranking of flavors, e.g.
+#     `--@platforms_contrib//os/linux/libc:preference=musl,glibc`.
+#
+#   * Following the choice in a toolchain or rule: use `:glibc_preferred` and `:musl_preferred` as
+#     `select()` keys, or add `:preferred` to the `toolchains` attribute of a target and use the
+#     `PREFERRED_LIBC` Make variable.
+#
+# To make code depend on the libc that it's actually compiled against, use the `config_setting`s in
+# `@rules_cc//cc/libc` instead.
+
+load(":libc_private.bzl", "LIBC_FLAVORS", "libc_preference_flag", "preferred_libc")
+
+# A ranking of the libc flavors. The preferred flavor is the first listed one that the target
+# platform makes available, or the first listed one if the platform has no libc constraints. Lists
+# that contain none of the available flavors are an error.
+libc_preference_flag(
+    name = "preference",
+    build_setting_default = [
+        "glibc",
+        "musl",
+    ],
+    # Applies to the target platform only, so that a ranking that leaves out glibc doesn't break
+    # tools built for glibc-only exec platforms.
+    scope = "target",
+    visibility = ["//visibility:public"],
+)
+
+# Provides the preferred libc flavor of the target platform, or the empty string for non-Linux
+# platforms, as the PREFERRED_LIBC Make variable and for `config_setting.flag_values`. Consume it
+# either via the `toolchains` attribute in a BUILD file or directly from a rule implementation by
+# reading its platform_common.TemplateVariableInfo provider.
+preferred_libc(
+    name = "preferred",
+    visibility = ["//visibility:public"],
+)
+
+[
+    config_setting(
+        name = "{}_preferred".format(flavor),
+        flag_values = {":preferred": flavor},
+        visibility = ["//visibility:public"],
+    )
+    for flavor in LIBC_FLAVORS
+]
