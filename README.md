@@ -141,51 +141,113 @@ Bazel 9.2.0 and later enforce completeness.
 ### Preferred flavor
 
 Platforms that provide both glibc and musl, or neither, leave the choice of the libc to toolchains.
-So that all toolchains in a build make the same choice, the list flag `@platforms_contrib//os/linux/libc:preference` ranks the following options and defaults to `glibc,musl`:
+All toolchains that contribute to the same binary have to make the same choice, e.g. a Rust staticlib linked into a C++ binary.
+To that end, the list flag `@platforms_contrib//os/linux/libc:preference` ranks the following options and defaults to `glibc,musl`:
 
-* `glibc` and `musl`: link against the platform's copy of the flavor, which requires the platform to provide it.
-* `static-musl`: link fully statically against musl, which doesn't depend on the platform's libc and is thus viable on every Linux platform.
-* `static-glibc`: link fully statically against glibc, which is viable on every Linux platform in the same way.
-  However, glibc still loads shared objects of the exact glibc version used for linking at runtime for NSS (e.g. `getaddrinfo` and `getpwnam`), iconv and `dlopen`.
-  Rank this option only if the binaries don't rely on these features, e.g. to keep using code that requires glibc in `scratch` images.
+* `glibc` and `musl`: target the flavor, which is viable if the target platform declares it as available.
+  Binaries don't have to be linked fully statically.
+* `static-musl` and `static-glibc`: target the flavor and link all binaries fully statically, which is viable on every Linux platform.
+  Depending on the features they use and the configuration of the machine, fully static glibc binaries may still load shared objects of the exact glibc version used for linking at runtime, e.g. for NSS sources other than `files` and `dns` (as of glibc 2.34), iconv and `dlopen`.
+  For self-contained binaries, avoid these features or ship the matching shared objects.
 
 The preferred option is the first viable one.
-A platform without libc constraints provides no libc, which also represents container images such as `scratch`.
-If none of the listed options is viable, analysis fails.
-For example, `--@platforms_contrib//os/linux/libc:preference=musl` ensures that toolchains never target glibc.
-Since Bazel's default host platform `@platforms//host` doesn't have libc constraints, building for it with toolchains that follow the preference requires ranking a fully static option or using a host platform such as `@platforms_contrib//host:generic`.
+A platform without libc constraints doesn't declare any libc as available, so only the fully static options are viable on it.
+This also describes container images such as `scratch`, but it applies to Bazel's default host platform `@platforms//host` as well.
+To target the libc of the host, use `@platforms_contrib//host:generic` as the host platform.
 
 Typical rankings are:
 
-* `glibc,musl`: link against the platform's libc, preferring glibc.
-* `static-musl`: build portable, fully static binaries for all Linux platforms.
-* `glibc,static-musl`: link against the platform's glibc if it provides one and build fully static binaries otherwise, e.g. for `scratch` or Alpine images.
-* `glibc,static-glibc`: the same for code that requires glibc.
+| Intent | Ranking |
+|---|---|
+| Prefer the platform's glibc, otherwise its musl | `glibc,musl` |
+| Prefer the platform's musl, otherwise its glibc | `musl,glibc` |
+| Build portable, fully static binaries for all Linux platforms | `static-musl` |
+| Use the platform's glibc, otherwise build fully static binaries (e.g. for `scratch` or Alpine images) | `glibc,static-musl` |
+| The same for code that requires glibc | `glibc,static-glibc` |
 
-On Bazel 9 and later, exec configurations always use the default ranking, so that rankings that leave out glibc don't break tools built for glibc-only execution platforms.
+On Bazel 9 and later, exec transitions reset the ranking to the default, so that the ranking for the target platform doesn't affect tools.
+On Bazel 7 and 8, the ranking also applies to exec configurations by default.
+Don't set the ranking via the `flags` of a platform: it would override the ranking chosen by the user and carry over to other platforms after transitions.
 
-Toolchains and rules that choose a libc should follow the preference: use `@platforms_contrib//os/linux/libc:glibc_preferred`, `@platforms_contrib//os/linux/libc:musl_preferred` and `@platforms_contrib//os/linux/libc:requires_fully_static` as `select()` conditions, or read the `$(PREFERRED_LIBC)` and `$(PREFERRED_LIBC_REQUIRES_FULLY_STATIC)` Make variables or the `platform_common.TemplateVariableInfo` provider of `@platforms_contrib//os/linux/libc:preferred`.
-For non-Linux platforms, the flavor is empty and full static linking isn't required.
+#### Following the preference
 
-If full static linking is required, toolchains should link all binaries fully statically, e.g. by enabling the `fully_static_link` feature of a C++ toolchain, and fail for binaries that can't be, e.g. because they depend on shared libraries.
-Otherwise, individual binaries can still be linked fully statically, e.g. via `features = ["fully_static_link"]`.
+Toolchains and rules that choose a libc should follow the preference instead of making their own choice, using the following targets in `@platforms_contrib//os/linux/libc`:
+
+* `:glibc_preferred` and `:musl_preferred` match the preferred flavor.
+* `:requires_fully_static` matches if binaries have to be linked fully statically.
+  Toolchains should then link all binaries fully statically, e.g. by enabling the `fully_static_link` feature of a C++ toolchain, and fail for binaries that can't be, e.g. because they depend on shared libraries.
+  Otherwise, individual binaries can still be linked fully statically, e.g. via `features = ["fully_static_link"]`.
+* `:allows_dynamic` matches if the preference resolved and binaries don't have to be linked fully statically.
+* `:unresolved` matches Linux platforms without a viable option.
+* `:preferred` provides `PreferredLibcInfo` (from `@platforms_contrib//os/linux/libc:libc.bzl`) and the Make variables `PREFERRED_LIBC`, `PREFERRED_LIBC_REQUIRES_FULLY_STATIC` and `PREFERRED_LIBC_STATUS`.
+
+Resolving a valid ranking never fails: on a Linux platform without a viable option, none of the settings except `:unresolved` match and the status is `unresolved`.
+This allows toolchains to use the settings in their `target_settings`, which Bazel evaluates for every registered toolchain in every configuration, even when resolving an unrelated toolchain type.
+Since the preference may be unresolved, don't treat `//conditions:default` as one of the flavors.
+To fail with an actionable error instead of "No matching toolchains found", a toolchain type can have an additional toolchain that is selected on `:unresolved` and calls `check_preferred_libc` from `libc.bzl`.
+To diagnose a platform directly, build `@platforms_contrib//os/linux/libc:validate_preference` for it.
+
+The preferred option doesn't depend on which toolchains are registered.
+For example, if the target platform only declares glibc 2.17 and the ranking is `glibc,static-musl`, glibc is preferred even if the C++ toolchain requires glibc 2.28.
+Toolchains should express such requirements as constraints and must not fall back to a different flavor.
 Code that depends on the libc it is actually compiled against should still use the `config_setting`s in `@rules_cc//cc/libc`.
 
 #### Example
 
-A toolchain for a language that targets either libc flavor:
+Toolchains for glibc and fully static musl, plus a toolchain that fails with an actionable error:
 
 ```starlark
-my_lang_toolchain(
-    name = "linux_x86_64_toolchain_impl",
-    fully_static = select({
-        "@platforms_contrib//os/linux/libc:requires_fully_static": True,
-        "//conditions:default": False,
-    }),
-    target_triple = select({
-        "@platforms_contrib//os/linux/libc:musl_preferred": "x86_64-unknown-linux-musl",
-        "//conditions:default": "x86_64-unknown-linux-gnu",
-    }),
+toolchain(
+    name = "linux_x86_64_glibc",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+        "@platforms_contrib//os/linux/libc/glibc:at_least_2.28_available",
+    ],
+    target_settings = [
+        "@platforms_contrib//os/linux/libc:glibc_preferred",
+        "@platforms_contrib//os/linux/libc:allows_dynamic",
+    ],
+    toolchain = ":linux_x86_64_glibc_impl",
+    toolchain_type = ":toolchain_type",
+)
+
+toolchain(
+    name = "linux_x86_64_static_musl",
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_settings = ["@platforms_contrib//os/linux/libc:musl_preferred"],
+    toolchain = ":linux_x86_64_static_musl_impl",
+    toolchain_type = ":toolchain_type",
+)
+
+toolchain(
+    name = "unresolved_libc",
+    target_compatible_with = ["@platforms//os:linux"],
+    target_settings = ["@platforms_contrib//os/linux/libc:unresolved"],
+    # A rule that calls check_preferred_libc on the PreferredLibcInfo of
+    # @platforms_contrib//os/linux/libc:preferred. Tag it "manual" as it fails when built directly
+    # for such a platform.
+    toolchain = ":unresolved_libc_impl",
+    toolchain_type = ":toolchain_type",
+)
+```
+
+A Linux-only target that depends on the flavor:
+
+```starlark
+my_lang_library(
+    name = "lib",
+    target_compatible_with = ["@platforms//os:linux"],
+    target_triple = select(
+        {
+            "@platforms_contrib//os/linux/libc:glibc_preferred": "x86_64-unknown-linux-gnu",
+            "@platforms_contrib//os/linux/libc:musl_preferred": "x86_64-unknown-linux-musl",
+        },
+        no_match_error = "No libc preference resolved, see @platforms_contrib//os/linux/libc:validate_preference",
+    ),
 )
 ```
 
