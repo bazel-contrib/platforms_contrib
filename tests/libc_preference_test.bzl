@@ -8,21 +8,24 @@ visibility("private")
 _PREFERENCE = str(Label("//os/linux/libc:preference"))
 
 _PreferredLibcInfo = provider(
-    doc = "The values of the ways to read the preferred libc flavor.",
-    fields = ["make_variable", "selected"],
+    doc = "The values of the ways to read the preferred libc.",
+    fields = ["make_variables", "selected_flavor", "selected_fully_static"],
 )
 
 def _preferred_libc_subject_impl(ctx):
+    variables = ctx.attr.preferred[platform_common.TemplateVariableInfo].variables
     return [_PreferredLibcInfo(
-        make_variable = ctx.attr.preferred[platform_common.TemplateVariableInfo].variables["PREFERRED_LIBC"],
-        selected = ctx.attr.selected,
+        make_variables = [variables["PREFERRED_LIBC"], variables["PREFERRED_LIBC_REQUIRES_FULLY_STATIC"]],
+        selected_flavor = ctx.attr.selected_flavor,
+        selected_fully_static = ctx.attr.selected_fully_static,
     )]
 
 _preferred_libc_subject = rule(
     implementation = _preferred_libc_subject_impl,
     attrs = {
         "preferred": attr.label(),
-        "selected": attr.string(),
+        "selected_flavor": attr.string(),
+        "selected_fully_static": attr.bool(),
     },
 )
 
@@ -34,11 +37,12 @@ _exec_preferred_libc = rule(
     attrs = {"preferred": attr.label(cfg = "exec", default = "//os/linux/libc:preferred")},
 )
 
-def _expect_flavor(flavor):
+def _expect_preferred(flavor, fully_static):
     def impl(env, target):
         info = target[_PreferredLibcInfo]
-        env.expect.that_str(info.make_variable).equals(flavor)
-        env.expect.that_str(info.selected).equals(flavor)
+        env.expect.that_collection(info.make_variables).contains_exactly([flavor, "1" if fully_static else ""]).in_order()
+        env.expect.that_str(info.selected_flavor).equals(flavor)
+        env.expect.that_bool(info.selected_fully_static).equals(fully_static)
 
     return impl
 
@@ -58,13 +62,21 @@ def libc_preference_test_suite(name):
     _preferred_libc_subject(
         name = name + "_subject",
         preferred = "//os/linux/libc:preferred",
-        selected = select({
+        selected_flavor = select({
             "//os/linux/libc:glibc_preferred": "glibc",
             "//os/linux/libc:musl_preferred": "musl",
             "//conditions:default": "",
         }),
+        selected_fully_static = select({
+            "//os/linux/libc:requires_fully_static": True,
+            "//conditions:default": False,
+        }),
+        tags = ["manual"],
     )
-    _exec_preferred_libc(name = name + "_exec_subject")
+    _exec_preferred_libc(
+        name = name + "_exec_subject",
+        tags = ["manual"],
+    )
 
     platforms = {
         "linux": [],
@@ -82,23 +94,26 @@ def libc_preference_test_suite(name):
         constraint_values = ["@platforms//cpu:aarch64", "@platforms//os:macos"],
     )
 
-    for test, platform, preference, flavor in [
-        ("default", "glibc_and_musl", None, "glibc"),
-        ("prefer_musl", "glibc_and_musl", ["musl", "glibc"], "musl"),
-        ("only_musl", "glibc_and_musl", ["musl"], "musl"),
-        # Unavailable flavors are skipped.
-        ("glibc_prefer_musl", "glibc", ["musl", "glibc"], "glibc"),
-        ("musl_default", "musl", None, "musl"),
-        # Without libc constraints, every flavor counts as available.
-        ("no_libc_default", "linux", None, "glibc"),
-        ("no_libc_prefer_musl", "linux", ["musl", "glibc"], "musl"),
+    for test, platform, preference, flavor, fully_static in [
+        ("default", "glibc_and_musl", None, "glibc", False),
+        ("prefer_musl", "glibc_and_musl", ["musl", "glibc"], "musl", False),
+        ("only_musl", "glibc_and_musl", ["musl"], "musl", False),
+        ("prefer_static_musl", "glibc_and_musl", ["static-musl", "glibc"], "musl", True),
+        # Unavailable flavors are skipped, but fully static options are always viable.
+        ("glibc_prefer_musl", "glibc", ["musl", "glibc"], "glibc", False),
+        ("glibc_static_musl", "glibc", ["static-musl"], "musl", True),
+        ("glibc_fallback_static_musl", "glibc", ["glibc", "static-musl"], "glibc", False),
+        ("musl_default", "musl", None, "musl", False),
+        ("musl_fallback_static_musl", "musl", ["glibc", "static-musl"], "musl", True),
+        # Without libc constraints, only fully static options are viable.
+        ("no_libc_static_musl", "linux", ["glibc", "musl", "static-musl"], "musl", True),
         # The ranking only applies to Linux.
-        ("macos", "macos", ["musl"], ""),
+        ("macos", "macos", ["static-musl"], "", False),
     ]:
         analysis_test(
             name = "{}_{}_test".format(name, test),
             target = ":{}_subject".format(name),
-            impl = _expect_flavor(flavor),
+            impl = _expect_preferred(flavor, fully_static),
             config_settings = {
                 "//command_line_option:platforms": str(Label(":{}_{}".format(name, platform))),
             } | ({_PREFERENCE: preference} if preference != None else {}),
@@ -117,9 +132,10 @@ def libc_preference_test_suite(name):
     )
 
     for test, platform, preference, message in [
-        ("unavailable", "glibc", ["musl"], "None of the libc flavors in --{}=musl is available on the target platform, which has: \"glibc\"".format(Label("//os/linux/libc:preference"))),
-        ("empty", "linux", [], "is available on the target platform, which has: none"),
-        ("unsupported", "glibc", ["bionic", "glibc"], 'Unsupported libc flavor "bionic" in --{}, expected one of: "glibc", "musl"'.format(Label("//os/linux/libc:preference"))),
+        ("unavailable", "glibc", ["musl"], "None of the options in --{}=musl is viable on the target platform, which makes available: \"glibc\"".format(_PREFERENCE)),
+        ("no_libc", "linux", None, "The target platform doesn't make any libc available, so none of the options in --{}=glibc,musl is viable.".format(_PREFERENCE)),
+        ("empty", "glibc", [], "None of the options in --{}= is viable".format(_PREFERENCE)),
+        ("unsupported", "glibc", ["bionic", "glibc"], 'Unsupported libc preference "bionic" in --{}, expected one of: "glibc", "musl", "static-musl"'.format(_PREFERENCE)),
     ]:
         analysis_test(
             name = "{}_{}_test".format(name, test),
@@ -127,7 +143,6 @@ def libc_preference_test_suite(name):
             impl = _expect_failure(message),
             expect_failure = True,
             config_settings = {
-                _PREFERENCE: preference,
                 "//command_line_option:platforms": str(Label(":{}_{}".format(name, platform))),
-            },
+            } | ({_PREFERENCE: preference} if preference != None else {}),
         )
