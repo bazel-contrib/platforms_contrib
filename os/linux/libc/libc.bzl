@@ -7,8 +7,8 @@ Provided by //os/linux/libc:preferred.""",
     fields = {
         "diagnostic": "Why no option is viable if `status` is \"unresolved\", otherwise empty. " +
                       "The wording isn't stable.",
-        "flavor": "The preferred flavor, \"glibc\" or \"musl\", if `status` is \"resolved\", " +
-                  "otherwise None.",
+        "flavor": "The preferred flavor, currently \"glibc\" or \"musl\", if `status` is " +
+                  "\"resolved\", otherwise None. More flavors may be added in the future.",
         "requires_fully_static": "Whether binaries have to be linked fully statically if " +
                                  "`status` is \"resolved\", otherwise None.",
         "status": "\"resolved\" for Linux platforms with a viable option, \"unresolved\" for " +

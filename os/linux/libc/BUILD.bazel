@@ -49,7 +49,7 @@ libc_preference_flag(
 # Provides the preference resolved against the target platform as PreferredLibcInfo and Make
 # variables:
 #
-#   * PREFERRED_LIBC: "glibc", "musl" or empty if not resolved.
+#   * PREFERRED_LIBC: the preferred flavor, currently "glibc" or "musl", or empty if not resolved.
 #   * PREFERRED_LIBC_REQUIRES_FULLY_STATIC: "1" if binaries have to be linked fully statically,
 #     otherwise empty.
 #   * PREFERRED_LIBC_STATUS: "resolved", "unresolved" (Linux platforms without a viable option) or

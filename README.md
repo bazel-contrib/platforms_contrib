@@ -174,6 +174,7 @@ Don't set the ranking via the `flags` of a platform: it would override the ranki
 Toolchains and rules that choose a libc should follow the preference instead of making their own choice, using the following targets in `@platforms_contrib//os/linux/libc`:
 
 * `:glibc_preferred` and `:musl_preferred` match the preferred flavor.
+  To combine the flavor with other conditions in a single `config_setting`, e.g. so that it specializes other settings in a `select()`, use `:preferred` as a key of `flag_values` with the flavor as the value.
 * `:requires_fully_static` matches if binaries have to be linked fully statically.
   Toolchains should then link all binaries fully statically, e.g. by enabling the `fully_static_link` feature of a C++ toolchain, and fail for binaries that can't be, e.g. because they depend on shared libraries.
   Otherwise, individual binaries can still be linked fully statically, e.g. via `features = ["fully_static_link"]`.
@@ -183,8 +184,9 @@ Toolchains and rules that choose a libc should follow the preference instead of 
 
 Resolving a valid ranking never fails: on a Linux platform without a viable option, none of the settings except `:unresolved` match and the status is `unresolved`.
 This allows toolchains to use the settings in their `target_settings`, which Bazel evaluates for every registered toolchain in every configuration, even when resolving an unrelated toolchain type.
-Since the preference may be unresolved, don't treat `//conditions:default` as one of the flavors.
+Since the preference may be unresolved and more flavors may be added in the future, don't treat `//conditions:default` as one of the flavors and fail for flavors you don't support when reading `PreferredLibcInfo` or the Make variables.
 To fail with an actionable error instead of "No matching toolchains found", a toolchain type can have an additional toolchain that is selected on `:unresolved` and calls `check_preferred_libc` from `libc.bzl`.
+This doesn't cover viable options that the toolchain type has no toolchain for, e.g. flavors added in the future, which still result in "No matching toolchains found".
 To diagnose a platform directly, build `@platforms_contrib//os/linux/libc:validate_preference` for it.
 
 The preferred option doesn't depend on which toolchains are registered.
@@ -246,10 +248,17 @@ my_lang_library(
             "@platforms_contrib//os/linux/libc:glibc_preferred": "x86_64-unknown-linux-gnu",
             "@platforms_contrib//os/linux/libc:musl_preferred": "x86_64-unknown-linux-musl",
         },
-        no_match_error = "No libc preference resolved, see @platforms_contrib//os/linux/libc:validate_preference",
+        no_match_error = "my_lang_library requires glibc or musl as the preferred libc, see @platforms_contrib//os/linux/libc:validate_preference",
     ),
 )
 ```
+
+#### Compatibility
+
+Future versions may add options, e.g. for other libcs or with conditions on the available version, but won't change the meaning of existing options, targets, `PreferredLibcInfo` fields and Make variables.
+The default ranking will stay `glibc,musl`, except that flavors added in the future may be appended to it, which only affects platforms that declare them as available.
+An option that requires more than a flavor and possibly fully static linking, e.g. dynamic linking, won't match any existing setting or flavor value of `:preferred` and will leave `flavor` and `requires_fully_static` of `PreferredLibcInfo` as well as the corresponding Make variables unset.
+Code written before such an option is added then fails instead of ignoring the requirement, as long as it reads the fields directly instead of via `getattr` with a default.
 
 ## CPU features and model (x86-64 only)
 
