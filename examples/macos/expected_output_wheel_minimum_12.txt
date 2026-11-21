@@ -1,0 +1,1 @@
+target: 12.0, wheel: openblas-macosx_11_0_arm64.whl

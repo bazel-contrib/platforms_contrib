@@ -1,6 +1,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load(":cpu_feature_constraints.bzl", "cpu_feature_constraints")
 load(":libc_constraints.bzl", "libc_constraints")
+load(":os_version_constraints.bzl", "os_version_constraints")
 load(":prebuilts.bzl", "PREBUILT_DETECTORS", "prebuilt_detector_file_name", "prebuilt_detector_repo_name")
 
 def _host_detection_impl(mctx):
@@ -17,6 +18,10 @@ def _host_detection_impl(mctx):
 
     cpu_feature_constraints(
         name = "cpu_feature_constraints",
+    )
+
+    os_version_constraints(
+        name = "os_version_constraints",
     )
 
     for (os, cpu), prebuilt in PREBUILT_DETECTORS.items():

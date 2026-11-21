@@ -1,12 +1,13 @@
 load("@cpu_feature_constraints//:constraints.bzl", "CPU_FEATURE_CONSTRAINTS", "CPU_PLATFORM_FLAGS")
 load("@libc_constraints//:constraints.bzl", "LIBC_CONSTRAINTS")
+load("@os_version_constraints//:constraints.bzl", "OS_VERSION_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load("//private:compat_platform.bzl", "compat_platform")
 
 # Use the public alias //host:native.
 compat_platform(
     name = "native",
-    constraint_values = HOST_CONSTRAINTS + LIBC_CONSTRAINTS + CPU_FEATURE_CONSTRAINTS,
+    constraint_values = HOST_CONSTRAINTS + OS_VERSION_CONSTRAINTS + LIBC_CONSTRAINTS + CPU_FEATURE_CONSTRAINTS,
     flags = CPU_PLATFORM_FLAGS,
     visibility = ["//host:__pkg__"],
 )

@@ -4,9 +4,10 @@ platforms_contrib provides standardized constraints and flags for expressive Baz
 It currently covers:
 
 * [libc flavor and version](#libc-flavor-and-version-linux-only) (currently Linux only)
+* [macOS version](#macos-version)
 * [CPU features and model](#cpu-features-and-model-x86-64-only) (currently x86-64 only)
 
-We plan to work on support for non-Linux OSes and ARM CPUs next.
+We plan to work on support for more OSes and ARM CPUs next.
 Suggestions and PRs are welcome!
 
 Use these constraints instead of defining your own when authoring toolchains, rules or BUILD files.
@@ -23,14 +24,14 @@ Add the following to your `MODULE.bazel` file, using the latest version from the
 bazel_dep(name = "platforms_contrib", version = "<version>")
 ```
 
-platforms_contrib supports Bazel 7.1.0 and later.
+platforms_contrib supports Bazel 7.4.0 and later.
 Some features require newer versions of Bazel as noted below.
 
 ## Auto-detected host platforms
 
 platforms_contrib provides two auto-detected host platforms:
 
-* `@platforms_contrib//host:generic` provides the OS and CPU constraints of `@platforms//host`, Bazel's default host platform, together with constraints for the libc flavors and versions available on the host machine (rounded to certain buckets for better cache sharing across machines).
+* `@platforms_contrib//host:generic` provides the OS and CPU constraints of `@platforms//host`, Bazel's default host platform, together with constraints for the macOS version or the libc flavors and versions available on the host machine (rounded to certain buckets for better cache sharing across machines).
   This can be used as a drop-in replacement for the default platform and will always model a wide range of machines compatible with the host.
 * `@platforms_contrib//host:native` doesn't round the libc versions to buckets and additionally sets constraints for the features of the host machine's CPU and a flag for its model (x86-64 hosts only).
   This can be used as a hermetic replacement for `-march=native` type compiler flags.
@@ -137,6 +138,88 @@ platform(
 
 Always use these functions instead of listing individual `constraint_value`s as new values may be added.
 Bazel 9.2.0 and later enforce completeness.
+
+## macOS version
+
+For each macOS version from 10.0 to 10.15 and each major version since 11, there is a `constraint_value` expressing that the platform runs *at least* this version:
+
+```text
+@platforms_contrib//os/macos/version:at_least_10.<minor>_available
+@platforms_contrib//os/macos/version:at_least_<major>.0_available
+```
+
+Since macOS 11, minor versions are mid-year updates and aren't tracked, matching Python wheel tags.
+
+### Toolchain definitions
+
+A toolchain can be constrained by the minimum macOS version, both via `exec_compatible_with` for its binaries that run during the build and via `target_compatible_with` for the outputs it produces that run on the target platform.
+
+#### Example
+
+A toolchain whose tools require macOS 14 or later:
+
+```starlark
+toolchain(
+    name = "my_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms_contrib//os/macos/version:at_least_14.0_available",
+    ],
+    toolchain = ":my_toolchain_impl",
+    toolchain_type = "//my:toolchain_type",
+)
+```
+
+### Usage in BUILD files and rules
+
+Outputs built for macOS, such as binaries and Python wheels, require a minimum macOS version.
+To support users on older macOS versions than the target platform runs, set `--macos_minimum_os` (Bazel 8.0.0 and later).
+The targeted version is the value of this flag if set and the version of the target platform otherwise.
+Execution configurations use `--host_macos_minimum_os` instead.
+
+Use the `config_setting`s `@platforms_contrib//os/macos/version:target_at_least_<major>.<minor>` in `select()` conditions to match targeted versions, not the constraints above, which ignore the flag.
+Each version includes all lower versions, so the highest matching version is the most specialized condition and wins.
+
+#### Example
+
+A prebuilt Python wheel chosen for the targeted macOS version:
+
+```starlark
+alias(
+    name = "numpy_wheel",
+    actual = select({
+        "@platforms_contrib//os/macos/version:target_at_least_14.0": "@numpy_macosx_14_0_arm64//file",
+        "@platforms_contrib//os/macos/version:target_at_least_11.0": "@numpy_macosx_11_0_arm64//file",
+    }),
+)
+```
+
+To use the targeted version in a BUILD file, add `@platforms_contrib//os/macos/version:target_version` to the `toolchains` attribute of a target and use the `$(MACOS_VERSION)` Make variable.
+It is empty if the target platform isn't macOS or neither the flag nor the platform specify a version.
+
+A rule can read the targeted version from the `$(MACOS_VERSION)` Make variable or directly from the `platform_common.TemplateVariableInfo` provider of this target.
+
+### Custom platform definitions
+
+Use the `macos_version_constraints` function, which returns the `constraint_value`s for the given version and all lower versions.
+
+#### Example
+
+A Mac with Apple silicon running macOS 15:
+
+```starlark
+load("@platforms_contrib//os/macos/version:macos.bzl", "macos_version_constraints")
+
+platform(
+    name = "macos_15_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ] + macos_version_constraints("15.0"),
+)
+```
+
+Always use this function instead of listing individual `constraint_value`s as new values may be added.
 
 ## CPU features and model (x86-64 only)
 

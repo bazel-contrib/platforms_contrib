@@ -1,0 +1,1 @@
+target: 26.0, wheel: accelerate-macosx_14_0_arm64.whl

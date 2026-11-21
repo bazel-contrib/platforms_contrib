@@ -1,4 +1,5 @@
 load("@libc_constraints//:constraints.bzl", "GENERIC_LIBC_CONSTRAINTS")
+load("@os_version_constraints//:constraints.bzl", "OS_VERSION_CONSTRAINTS")
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load("//cpu/x86_64:model.bzl", "x86_64_model_flags")
 load("//private:compat_platform.bzl", "compat_platform")
@@ -10,13 +11,14 @@ load("//private:compat_platform.bzl", "compat_platform")
 # supported Bazel versions honor inherited constraints in toolchain resolution:
 # https://github.com/bazelbuild/bazel/issues/31388.
 #
-# :generic adds system libraries (currently Linux libc and version) to the host's OS and CPU. It
-# floors the glibc version to 2.17, 2.28, 2.34 or 2.36, so that hosts with similar glibc versions
-# share outputs of toolchains that compile against the exact version (see
-# //private:libc_constraints.bzl).
+# :generic adds the OS version (currently macOS) and system libraries (currently Linux libc and
+# version) to the host's OS and CPU. It floors the glibc version to 2.17, 2.28, 2.34 or 2.36, so
+# that hosts with similar glibc versions share outputs of toolchains that compile against the exact
+# version (see //private:libc_constraints.bzl). The macOS version is only floored to the major
+# version (see //os/macos/version:macos_private.bzl).
 compat_platform(
     name = "generic",
-    constraint_values = HOST_CONSTRAINTS + GENERIC_LIBC_CONSTRAINTS,
+    constraint_values = HOST_CONSTRAINTS + OS_VERSION_CONSTRAINTS + GENERIC_LIBC_CONSTRAINTS,
     # Transitions from :native would otherwise keep the host's CPU model.
     flags = x86_64_model_flags(""),
     visibility = ["//visibility:public"],
