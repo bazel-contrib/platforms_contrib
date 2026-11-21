@@ -1,0 +1,75 @@
+# Constraints describing which macOS version a platform runs.
+#
+# Usage:
+#
+#   * Defining a `platform`: append `macos_version_constraints("X.Y")` (from `macos.bzl`) to the
+#     `platform`'s `constraint_value`s. This helper expands to every `at_least_X.Y_available` value
+#     up to the requested version.
+#
+#   * Constraining a toolchain: list one of the `:at_least_X.Y_available` values in
+#     `exec_compatible_with` / `target_compatible_with`.
+#
+#   * Targeting a macOS version, e.g. when choosing prebuilt binaries: use the
+#     `:target_at_least_X.Y` config settings in `select()`, or add the `:target_version` target to
+#     the `toolchains` attribute of a target and use the `MACOS_VERSION` Make variable. Both use the
+#     value of `--macos_minimum_os` if it is set and the target platform's version otherwise.
+#
+# See `examples/macos/BUILD.bazel` for an example of targeting a macOS version.
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("//private:compat_constraint_setting.bzl", "compat_constraint_setting")
+load(":macos_private.bzl", "MACOS_VERSIONS")
+load(":target_version.bzl", "target_macos_version", "target_macos_version_at_least")
+
+bzl_library(
+    name = "macos_bzl",
+    srcs = [
+        "macos.bzl",
+        "macos_private.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+[
+    (
+        compat_constraint_setting(
+            name = "at_least_{}".format(MACOS_VERSIONS[i]),
+            refines_constraint_value = "@platforms//os:osx" if i == 0 else ":at_least_{}_available".format(MACOS_VERSIONS[i - 1]),
+        ),
+        constraint_value(
+            name = "at_least_{}_available".format(MACOS_VERSIONS[i]),
+            constraint_setting = ":at_least_{}".format(MACOS_VERSIONS[i]),
+            visibility = ["//visibility:public"],
+        ),
+    )
+    for i in range(len(MACOS_VERSIONS))
+]
+
+# Provides the macOS version targeted on the target platform or the empty string as the
+# MACOS_VERSION Make variable: the value of --macos_minimum_os if set, otherwise the version of the
+# target platform. Consume this either via the `toolchains` attribute in a BUILD file or directly
+# from a rule implementation by reading its platform_common.TemplateVariableInfo provider.
+target_macos_version(
+    name = "target_version",
+    visibility = ["//visibility:public"],
+)
+
+# Each setting also requires all lower versions so that the highest matching one is the most
+# specialized condition in a select().
+[
+    (
+        target_macos_version_at_least(
+            name = "_target_at_least_{}".format(MACOS_VERSIONS[i]),
+            version = MACOS_VERSIONS[i],
+        ),
+        config_setting(
+            name = "target_at_least_{}".format(MACOS_VERSIONS[i]),
+            flag_values = {
+                ":_target_at_least_{}".format(lower_version): "true"
+                for lower_version in MACOS_VERSIONS[:i + 1]
+            },
+            visibility = ["//visibility:public"],
+        ),
+    )
+    for i in range(len(MACOS_VERSIONS))
+]

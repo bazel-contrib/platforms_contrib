@@ -13,6 +13,14 @@ host_genrule(
     ],
 )
 
+# Writes the detected host macOS version (empty on other hosts).
+host_genrule(
+    name = "detect_macos_version",
+    outs = ["output_macos_version.txt"],
+    cmd = "echo $(MACOS_VERSION) > $@",
+    toolchains = ["@platforms_contrib//os/macos/version:target_version"],
+)
+
 # Writes the host's x86-64 level, or "none" on other CPUs; select() picks the most specialized
 # matching level.
 host_genrule(
@@ -33,6 +41,7 @@ build_test(
     targets = [
         ":detect_libc",
         ":detect_level",
+        ":detect_macos_version",
     ],
 )
 
@@ -44,6 +53,15 @@ sh_test(
     args = ["$(rootpath :detect_libc)"],
     data = [":detect_libc"],
     target_compatible_with = ["@platforms//os:linux"],
+)
+
+sh_test(
+    name = "detect_macos_version_test",
+    size = "small",
+    srcs = ["detect_macos_version_test.sh"],
+    args = ["$(rootpath :detect_macos_version)"],
+    data = [":detect_macos_version"],
+    target_compatible_with = ["@platforms//os:macos"],
 )
 
 # Expect at least x86-64-v2 on CI hosts to check detection beyond the v1 baseline.

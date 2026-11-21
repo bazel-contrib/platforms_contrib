@@ -1,0 +1,52 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@platforms_contrib//os/macos/version:macos.bzl", "macos_version_constraints")
+load(":cfg_variants.bzl", "macos_26_genrule", "macos_26_minimum_12_genrule")
+
+# A machine running macOS 26 on Apple silicon.
+platform(
+    name = "macos_26_arm64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:macos",
+    ] + macos_version_constraints("26.0"),
+)
+
+# Chooses the prebuilt that best fits the targeted macOS version, the way Python wheels with
+# macosx_<major>_<minor> tags are chosen. The highest matching version is the most specialized
+# condition and wins.
+_CMD = 'echo "target: $(MACOS_VERSION), wheel: ' + select({
+    "@platforms_contrib//os/macos/version:target_at_least_14.0": "accelerate-macosx_14_0_arm64.whl",
+    "@platforms_contrib//os/macos/version:target_at_least_11.0": "openblas-macosx_11_0_arm64.whl",
+    "//conditions:default": "sdist",
+}) + '" > $@'
+
+# Without --macos_minimum_os, the version of the target platform is targeted.
+macos_26_genrule(
+    name = "choose_wheel",
+    outs = ["output_wheel.txt"],
+    cmd = _CMD,
+    toolchains = ["@platforms_contrib//os/macos/version:target_version"],
+)
+
+diff_test(
+    name = "choose_wheel_test",
+    file1 = ":choose_wheel",
+    file2 = "expected_output_wheel.txt",
+)
+
+# --macos_minimum_os takes precedence, so the outputs also run on older macOS versions. Bazel 7
+# doesn't expose the flag to Starlark.
+macos_26_minimum_12_genrule(
+    name = "choose_wheel_minimum_12",
+    outs = ["output_wheel_minimum_12.txt"],
+    cmd = _CMD,
+    tags = ["requires-bazel-8"],
+    toolchains = ["@platforms_contrib//os/macos/version:target_version"],
+)
+
+diff_test(
+    name = "choose_wheel_minimum_12_test",
+    file1 = ":choose_wheel_minimum_12",
+    file2 = "expected_output_wheel_minimum_12.txt",
+    tags = ["requires-bazel-8"],
+)
