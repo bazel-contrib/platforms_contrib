@@ -19,12 +19,6 @@ cc_binary(
     # Shrinks the released binaries. ld64 has no equivalent of --strip-all.
     linkopts = select({
         "@platforms//os:macos": ["-Wl,-x"],
-        "@platforms//os:windows": [
-            "-Wl,--strip-all",
-            # TODO: Remove once the llvm module includes
-            # https://github.com/hermeticbuild/hermetic-llvm/pull/829.
-            "-Wl,--gc-sections",
-        ],
         "//conditions:default": ["-Wl,--strip-all"],
     }),
     target_compatible_with = ["@platforms//cpu:x86_64"],
