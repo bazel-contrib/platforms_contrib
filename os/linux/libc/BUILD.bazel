@@ -1,0 +1,111 @@
+# The libc flavor that toolchains should target on Linux platforms, chosen from the flavors that the
+# platform declares as available via the constraints in `:glibc` and `:musl` or linked fully
+# statically.
+#
+# Usage:
+#
+#   * Choosing the flavor: set `:preference` to a ranking of options, e.g.
+#     `--@platforms_contrib//os/linux/libc:preference=glibc,static-musl`.
+#
+#   * Following the choice in a toolchain or rule: use `:glibc_preferred`, `:musl_preferred`,
+#     `:requires_fully_static`, `:allows_dynamic` and `:unresolved` as `select()` keys or in
+#     `toolchain.target_settings`, read the `PreferredLibcInfo` provider (from `libc.bzl`) of
+#     `:preferred` in a rule implementation, or add `:preferred` to the `toolchains` attribute of a
+#     target and use the `PREFERRED_LIBC`, `PREFERRED_LIBC_REQUIRES_FULLY_STATIC` and
+#     `PREFERRED_LIBC_STATUS` Make variables.
+#
+#   * Diagnosing a Linux platform without a viable option: build `:validate_preference` for it.
+#
+# To make code depend on the libc that it's actually compiled against, use the `config_setting`s in
+# `@rules_cc//cc/libc` instead.
+
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":libc_private.bzl", "LIBC_FLAVORS", "libc_preference_flag", "preferred_libc", "validate_preferred_libc")
+
+bzl_library(
+    name = "libc_bzl",
+    srcs = ["libc.bzl"],
+    visibility = ["//visibility:public"],
+)
+
+# A ranking of the libc options: "glibc" and "musl" are viable if the target platform declares the
+# flavor as available, "static-glibc" and "static-musl" on every Linux platform. The preferred
+# option is the first viable one. Only the "static-" options require linking fully statically.
+libc_preference_flag(
+    name = "preference",
+    build_setting_default = [
+        "glibc",
+        "musl",
+    ],
+    # Applies to the target platform only, so that a ranking that leaves out glibc doesn't affect
+    # tools built for the exec platform.
+    # TODO: On Bazel versions with https://github.com/bazelbuild/bazel/pull/31007, as detected via
+    #  a new bazel_features entry, use scope = "exec:--" + str(Label(":tool_preference")) with a
+    #  universal :tool_preference flag that's only defined on these versions.
+    scope = "target",
+    visibility = ["//visibility:public"],
+)
+
+# Provides the preference resolved against the target platform as PreferredLibcInfo and Make
+# variables:
+#
+#   * PREFERRED_LIBC: the preferred flavor, currently "glibc" or "musl", or empty if not resolved.
+#   * PREFERRED_LIBC_REQUIRES_FULLY_STATIC: "1" if binaries have to be linked fully statically,
+#     otherwise empty.
+#   * PREFERRED_LIBC_STATUS: "resolved", "unresolved" (Linux platforms without a viable option) or
+#     "not_applicable" (other platforms).
+#
+# It never fails for valid rankings, so that toolchains can safely use the config settings below in
+# their `target_settings`. Consume it either via the `toolchains` attribute in a BUILD file or
+# directly from a rule implementation.
+preferred_libc(
+    name = "preferred",
+    visibility = ["//visibility:public"],
+)
+
+preferred_libc(
+    name = "preferred_requires_fully_static",
+    requires_fully_static = True,
+)
+
+# Match the resolved flavor, whether or not it has to be linked fully statically.
+[
+    config_setting(
+        name = "{}_preferred".format(flavor),
+        flag_values = {":preferred": flavor},
+        visibility = ["//visibility:public"],
+    )
+    for flavor in LIBC_FLAVORS
+]
+
+# Matches if binaries have to be linked fully statically. Toolchains should then link all binaries
+# fully statically, e.g. by enabling the `fully_static_link` feature of a C++ toolchain, and fail
+# for binaries that can't be.
+config_setting(
+    name = "requires_fully_static",
+    flag_values = {":preferred_requires_fully_static": "true"},
+    visibility = ["//visibility:public"],
+)
+
+# Matches if the preference resolved and binaries don't have to be linked fully statically, e.g.
+# for toolchains that only support dynamic linking.
+config_setting(
+    name = "allows_dynamic",
+    flag_values = {":preferred_requires_fully_static": "false"},
+    visibility = ["//visibility:public"],
+)
+
+# Matches Linux platforms without a viable option, e.g. for a toolchain that only exists to fail
+# with the diagnostic of PreferredLibcInfo via `check_preferred_libc`.
+config_setting(
+    name = "unresolved",
+    flag_values = {":preferred": "unresolved"},
+    visibility = ["//visibility:public"],
+)
+
+# Fails with an actionable error for Linux platforms without a viable option.
+validate_preferred_libc(
+    name = "validate_preference",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
