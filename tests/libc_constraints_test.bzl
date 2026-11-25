@@ -62,8 +62,9 @@ def _generic_glibc_version_test(env):
         "2.33": "2.28",
         "2.35": "2.34",
         "2.36": "2.36",
-        "2.39": "2.36",
-        "2.45": "2.36",
+        "2.38": "2.36",
+        "2.39": "2.39",
+        "2.45": "2.39",
     }.items():
         env.expect.that_str(parsing_for_tests.generic_glibc_version(version)).equals(generic_version)
 

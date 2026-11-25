@@ -11,8 +11,8 @@ load("//private:compat_platform.bzl", "compat_platform")
 # https://github.com/bazelbuild/bazel/issues/31388.
 #
 # :generic adds system libraries (currently Linux libc and version) to the host's OS and CPU. It
-# floors the glibc version to 2.17, 2.28, 2.34 or 2.36, so that hosts with similar glibc versions
-# share outputs of toolchains that compile against the exact version (see
+# floors the glibc version to 2.17, 2.28, 2.34, 2.36 or 2.39, so that hosts with similar glibc
+# versions share outputs of toolchains that compile against the exact version (see
 # //private:libc_constraints.bzl).
 compat_platform(
     name = "generic",

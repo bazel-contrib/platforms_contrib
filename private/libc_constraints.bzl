@@ -102,6 +102,8 @@ _GENERIC_GLIBC_VERSIONS = [
     "2.34",
     # DT_RELR relocations with -z pack-relative-relocs and arc4random (2.36).
     "2.36",
+    # strlcpy, strlcat and libmvec on AArch64 (2.38), <stdbit.h> and pidfd_spawn (2.39).
+    "2.39",
 ]
 
 def _generic_glibc_version(version):
